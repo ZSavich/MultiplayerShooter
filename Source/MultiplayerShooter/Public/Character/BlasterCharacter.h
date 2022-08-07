@@ -3,12 +3,14 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Components/WidgetComponent.h"
+#include "Components/CombatComponent.h"
 #include "GameFramework/Character.h"
 #include "BlasterCharacter.generated.h"
 
 class UCameraComponent;
 class USpringArmComponent;
+class AWeaponBase;
+class UWidgetComponent;
 
 UCLASS()
 class MULTIPLAYERSHOOTER_API ABlasterCharacter : public ACharacter
@@ -17,9 +19,13 @@ class MULTIPLAYERSHOOTER_API ABlasterCharacter : public ACharacter
 
 public:
 	ABlasterCharacter();
-	virtual void Tick(float DeltaTime) override;
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
-
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual void PostInitializeComponents() override;
+	
+	void SetOverlappingWeapon(AWeaponBase* Weapon);
+	bool IsWeaponEquipped() const;
+	
 protected:
 	virtual void BeginPlay() override;
 
@@ -27,6 +33,10 @@ protected:
 	void MoveRight(const float Value);
 	void LookUp(const float Value);
 	void Turn(const float Value);
+	void EquipButtonPressed();
+
+	UFUNCTION(Server, Reliable)
+	void ServerEquipButtonPressed();
 
 private:
 	UPROPERTY(VisibleAnywhere, Category = "Camera")
@@ -35,6 +45,15 @@ private:
 	UPROPERTY(VisibleAnywhere, Category = "Camera")
 	UCameraComponent* FollowCamera;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = true))
+	UCombatComponent* CombatComponent;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Widgets", meta = (AllowPrivateAccess = true))
 	UWidgetComponent* OverheadWidget;
+
+	UPROPERTY(ReplicatedUsing = OnRep_OverlappingWeapon)
+	AWeaponBase* OverlappingWeapon;
+
+	UFUNCTION()
+	void OnRep_OverlappingWeapon(const AWeaponBase* LastWeapon);
 };

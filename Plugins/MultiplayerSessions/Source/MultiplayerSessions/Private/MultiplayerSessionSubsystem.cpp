@@ -74,10 +74,13 @@ void UMultiplayerSessionSubsystem::FindSessions(int32 MaxSearchResults)
 
 	if (const UWorld* World = GetWorld())
 	{
+		UE_LOG(LogTemp, Warning, TEXT("EUD::FindSessions"));
 		if (ULocalPlayer* LocalPlayer = World->GetFirstLocalPlayerFromController())
 		{
+			UE_LOG(LogTemp, Warning, TEXT("EUD::FindSessions::LocalPlayer"));
 			if (!SessionInterface->FindSessions(*LocalPlayer->GetPreferredUniqueNetId(), LastSessionSearch.ToSharedRef()))
 			{
+				UE_LOG(LogTemp, Warning, TEXT("EUD::FindSessions::Can't Find Sessions"));
 				SessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(OnFindSessionsCompleteDelegate_Handle);
 				MultiplayerOnFindSessionComplete.Broadcast(TArray<FOnlineSessionSearchResult>(), false);
 			}
@@ -101,6 +104,7 @@ void UMultiplayerSessionSubsystem::JoinSession(const FOnlineSessionSearchResult&
 		{
 			if (!SessionInterface->JoinSession(*LocalPlayer->GetPreferredUniqueNetId(), NAME_GameSession, SearchResult))
 			{
+				UE_LOG(LogTemp, Warning, TEXT("EUD::JoinSession::Can't Join Session"));
 				SessionInterface->ClearOnJoinSessionCompleteDelegate_Handle(OnJoinSessionCompleteDelegate_Handle);
 				MultiplayerOnJoinSessionComplete.Broadcast(EOnJoinSessionCompleteResult::UnknownError);
 			}
@@ -120,6 +124,7 @@ void UMultiplayerSessionSubsystem::StartSession()
 
 	if (!SessionInterface->StartSession(NAME_GameSession))
 	{
+		UE_LOG(LogTemp, Warning, TEXT("EUD::StartSession::Can't Start Session"));
 		SessionInterface->ClearOnStartSessionCompleteDelegate_Handle(OStartSessionCompleteDelegate_Handle);
 		MultiplayerOnStartSessionComplete.Broadcast(false);
 	}
