@@ -22,9 +22,15 @@ public:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void PostInitializeComponents() override;
+	virtual void Tick(float DeltaSeconds) override;
 	
 	void SetOverlappingWeapon(AWeaponBase* Weapon);
 	bool IsWeaponEquipped() const;
+
+	bool GetIsAiming() const;
+
+	FORCEINLINE float GetAO_Yaw() const { return AO_Yaw; }
+	FORCEINLINE float GetAO_Pitch() const { return AO_Pitch; }
 	
 protected:
 	virtual void BeginPlay() override;
@@ -34,7 +40,11 @@ protected:
 	void LookUp(const float Value);
 	void Turn(const float Value);
 	void EquipButtonPressed();
-
+	void CrouchButtonPressed();
+	void AimButtonPressed();
+	void AimButtonReleased();
+	void AimOffset(float DeltaTime);
+	
 	UFUNCTION(Server, Reliable)
 	void ServerEquipButtonPressed();
 
@@ -53,6 +63,10 @@ private:
 
 	UPROPERTY(ReplicatedUsing = OnRep_OverlappingWeapon)
 	AWeaponBase* OverlappingWeapon;
+
+	float AO_Yaw;
+	float AO_Pitch;
+	FRotator StartingAimRotation;
 
 	UFUNCTION()
 	void OnRep_OverlappingWeapon(const AWeaponBase* LastWeapon);
