@@ -4,9 +4,11 @@
 
 #include "CoreMinimal.h"
 #include "Animation/AnimInstance.h"
+#include "BlasterTypes/TurningInPlace.h"
 #include "BlasterAnimInstance.generated.h"
 
 class ABlasterCharacter;
+class AWeaponBase;
 
 UCLASS()
 class MULTIPLAYERSHOOTER_API UBlasterAnimInstance : public UAnimInstance
@@ -50,7 +52,28 @@ private:
 
 	UPROPERTY(BlueprintReadOnly, Category = "Character", meta = (AllowPrivateAccess = true));
 	float AO_Pitch;
+	
+	UPROPERTY(BlueprintReadOnly, Category = "Character", meta = (AllowPrivateAccess = true));
+	FTransform LeftHandTransform;
 
+	UPROPERTY(BlueprintReadOnly, Category = "Character", meta = (AllowPrivateAccess = true));
+	ETurningInPlace TurningInPlace;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Character", meta = (AllowPrivateAccess = true));
+	FRotator RightHandRotation;
+	
+	UPROPERTY(BlueprintReadOnly, Category = "Character", meta = (AllowPrivateAccess = true));
+	bool bLocallyControlled;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Character", meta = (AllowPrivateAccess = true));
+	bool bRotateRootBone;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Character", meta = (AllowPrivateAccess = true));
+	bool bIsEliminated;
+
+	UPROPERTY()
+	AWeaponBase* EquippedWeapon;
+	
 	FRotator CharacterRotationLastFrame;
 	FRotator CharacterRotation;
 	FRotator DeltaRotation;

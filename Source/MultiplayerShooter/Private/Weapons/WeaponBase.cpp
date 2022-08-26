@@ -6,7 +6,10 @@
 #include "Character/BlasterCharacter.h"
 #include "Components/SphereComponent.h"
 #include "Components/WidgetComponent.h"
+#include "Engine/SkeletalMeshSocket.h"
 #include "Net/UnrealNetwork.h"
+#include "Character/BlasterCharacter.h"
+#include "Character/BlasterPlayerController.h"
 
 AWeaponBase::AWeaponBase()
 {
@@ -53,8 +56,13 @@ void AWeaponBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifet
 	DOREPLIFETIME(AWeaponBase, WeaponState);
 }
 
+bool AWeaponBase::IsEmpty()
+{
+	return Ammo <= 0;
+}
+
 void AWeaponBase::OnSphereOverlapped(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,
-	bool bFromSweep, const FHitResult& SweepResult)
+                                     bool bFromSweep, const FHitResult& SweepResult)
 {
 	if (ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(OtherActor))
 	{
@@ -87,6 +95,18 @@ void AWeaponBase::SetWeaponState(EWeaponState InWeaponState)
 	case EWeaponState::EWS_Equipped:
 		ShowPickupWidget(false);
 		AreaSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		WeaponMeshComponent->SetSimulatePhysics(false);
+		WeaponMeshComponent->SetEnableGravity(false);
+		WeaponMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		break;
+	case EWeaponState::EWS_Dropped:
+		if (HasAuthority())
+		{
+			AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+		}
+		WeaponMeshComponent->SetSimulatePhysics(true);
+		WeaponMeshComponent->SetEnableGravity(true);
+		WeaponMeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 		break;
 	}
 }
@@ -97,8 +117,88 @@ void AWeaponBase::OnRep_WeaponState()
 	{
 	case EWeaponState::EWS_Equipped:
 		ShowPickupWidget(false);
+		WeaponMeshComponent->SetSimulatePhysics(false);
+		WeaponMeshComponent->SetEnableGravity(false);
+		WeaponMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		break;
+	case EWeaponState::EWS_Dropped:
+		WeaponMeshComponent->SetSimulatePhysics(true);
+		WeaponMeshComponent->SetEnableGravity(true);
+		WeaponMeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 		break;
 	}
 }
 
+void AWeaponBase::OnRep_Owner()
+{
+	Super::OnRep_Owner();
+	if (Owner == nullptr)
+	{
+		BlasterOwnerCharacter = nullptr;
+		BlasterOwnerController = nullptr;
+	}
+	else
+	{
+		SetHUDAmmo();
+	}
+}
 
+void AWeaponBase::Fire(const FVector& HitTarget)
+{
+	if (FireAnimation && WeaponMeshComponent)
+	{
+		WeaponMeshComponent->PlayAnimation(FireAnimation, false);
+	}
+	if (CasingClass)
+	{
+		const USkeletalMeshSocket* AmmoEjectSocket = WeaponMeshComponent->GetSocketByName(TEXT("AmmoEject"));
+		if (AmmoEjectSocket)
+		{
+			const FTransform SocketTransform = AmmoEjectSocket->GetSocketTransform(WeaponMeshComponent);
+
+			if (UWorld* World = GetWorld())
+			{
+				World->SpawnActor<ACasingBase>(
+					CasingClass,
+					SocketTransform.GetLocation(),
+					SocketTransform.GetRotation().Rotator()
+				);
+			}
+		}
+	}
+	SpendRound();
+}
+
+void AWeaponBase::SetHUDAmmo()
+{
+	BlasterOwnerCharacter = BlasterOwnerCharacter == nullptr ? GetOwner<ABlasterCharacter>() : BlasterOwnerCharacter;
+	if (BlasterOwnerCharacter)
+	{
+		BlasterOwnerController = BlasterOwnerController == nullptr ? Cast<ABlasterPlayerController>(BlasterOwnerCharacter->Controller) : BlasterOwnerController;
+		if (BlasterOwnerController)
+		{
+			BlasterOwnerController->SetHUDWeaponAmmo(Ammo);
+		}
+	}
+}
+
+void AWeaponBase::Dropped()
+{
+	SetWeaponState(EWeaponState::EWS_Dropped);
+	const FDetachmentTransformRules DetachRules(EDetachmentRule::KeepWorld, true);
+	WeaponMeshComponent->DetachFromComponent(DetachRules);
+	SetOwner(nullptr);
+	BlasterOwnerCharacter = nullptr;
+	BlasterOwnerController = nullptr;
+}
+
+void AWeaponBase::SpendRound()
+{
+	Ammo = FMath::Clamp(Ammo - 1, 0, MagCapacity);
+	SetHUDAmmo();
+}
+
+void AWeaponBase::OnRep_Ammo()
+{
+	SetHUDAmmo();
+}

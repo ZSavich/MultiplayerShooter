@@ -32,6 +32,8 @@ void UBlasterAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 	bWeaponEquipped = BlasterCharacter->IsWeaponEquipped();
 	bIsCrouching = BlasterCharacter->GetCharacterMovement()->IsCrouching();
 	bAiming = BlasterCharacter->GetIsAiming();
+	bRotateRootBone = BlasterCharacter->ShouldRotateRootBone();
+	bIsEliminated = BlasterCharacter->IsEliminated();
 
 	const FRotator AimRotation = BlasterCharacter->GetBaseAimRotation();
 	const FRotator MovementRotation = UKismetMathLibrary::MakeRotFromX(BlasterCharacter->GetVelocity());
@@ -46,4 +48,29 @@ void UBlasterAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 
 	AO_Yaw = BlasterCharacter->GetAO_Yaw();
 	AO_Pitch = BlasterCharacter->GetAO_Pitch();
+	TurningInPlace = BlasterCharacter->GetTurningInPlace();
+
+	EquippedWeapon = BlasterCharacter->GetEquippedWeapon();
+	if (bWeaponEquipped && EquippedWeapon && EquippedWeapon->GetWeaponMesh() && BlasterCharacter->GetMesh())
+	{
+		LeftHandTransform = EquippedWeapon->GetWeaponMesh()->GetSocketTransform(TEXT("LeftHandSocket"));
+		FVector OutPosition;
+		FRotator OutRotation;
+		BlasterCharacter->GetMesh()->TransformToBoneSpace(TEXT("hand_r"), LeftHandTransform.GetLocation(), FRotator::ZeroRotator, OutPosition, OutRotation);
+		LeftHandTransform.SetLocation(OutPosition);
+		LeftHandTransform.SetRotation(FQuat(OutRotation));
+
+		if (BlasterCharacter->IsLocallyControlled())
+		{
+			bLocallyControlled = true;
+			const FTransform RightHandTransform = BlasterCharacter->GetMesh()->GetSocketTransform(TEXT("hand_r"));
+			const FRotator LookAtRotation = UKismetMathLibrary::FindLookAtRotation(RightHandTransform.GetLocation(), RightHandTransform.GetLocation() + (RightHandTransform.GetLocation() - BlasterCharacter->GetHitTarget())); 
+			RightHandRotation = FMath::RInterpTo(
+				RightHandRotation,
+				LookAtRotation,
+				DeltaSeconds,
+				30.f
+			); 
+		}
+	}
 }
