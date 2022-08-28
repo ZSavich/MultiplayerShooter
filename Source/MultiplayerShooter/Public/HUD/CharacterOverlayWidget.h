@@ -31,4 +31,13 @@ public:
 
 	UPROPERTY(meta = (BindWidget))
 	UTextBlock* WeaponAmmoAmount{nullptr};
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* CarriedAmmoAmount{nullptr};
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* MatchCountdownText{nullptr};
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* WeaponTypeText{nullptr};
 };

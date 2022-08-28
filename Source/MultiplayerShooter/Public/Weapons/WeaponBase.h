@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "CasingBase.h"
+#include "WeaponTypes.h"
 #include "GameFramework/Actor.h"
 #include "WeaponBase.generated.h"
 
@@ -40,6 +41,9 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Ammo")
 	int32 MagCapacity = 30.f;
 
+	UPROPERTY(EditAnywhere, Category = "Weapom")
+	EWeaponType WeaponType;
+
 	UPROPERTY()
 	ABlasterCharacter* BlasterOwnerCharacter;
 
@@ -73,6 +77,9 @@ public:
 
 	UPROPERTY(EditAnywhere, Category = "Weapon")
 	float FireDelay = 0.15f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Sounds")
+	USoundCue* EquipSoundFX;
 	
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
@@ -113,9 +120,13 @@ public:
 	void SetHUDAmmo();
 	bool IsEmpty();
 	void Dropped();
+	void AddAmmo(const int32 AmmoToAdd);
 
 	FORCEINLINE void SetWeaponState(EWeaponState InWeaponState);
 	FORCEINLINE USkeletalMeshComponent* GetWeaponMesh() const { return WeaponMeshComponent; }
 	FORCEINLINE float GetZoomedFOV() const { return ZoomedFOV; }
 	FORCEINLINE float GetZoomInterpSpeed() const { return ZoomInterpSpeed; }
+	FORCEINLINE const EWeaponType&  GetWeaponType() const { return WeaponType; }
+	FORCEINLINE int32 GetMagCapacity() const { return MagCapacity; }
+	FORCEINLINE int32 GetAmmo() const { return Ammo; }
 };

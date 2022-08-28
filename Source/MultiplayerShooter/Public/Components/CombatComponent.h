@@ -3,9 +3,11 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "BlasterTypes/CombatState.h"
 #include "Components/ActorComponent.h"
 #include "HUD/BlasterHUD.h"
 #include "Weapons/WeaponBase.h"
+#include "Weapons/WeaponTypes.h"
 #include "CombatComponent.generated.h"
 
 class ABlasterCharacter;
@@ -47,24 +49,46 @@ private:
 
 	FTimerHandle FireTimer;
 	bool bCanFire = true;
+
+	/*
+	 * Ammo data
+	 */
+	UPROPERTY(ReplicatedUsing = OnRep_CarriedAmmo)
+	float CarriedAmmo;
+
+	UPROPERTY(EditAnywhere, Category = "Ammo")
+	float StartingARAmmo = 30.f;
+	
+	TMap<EWeaponType, uint32> CarriedAmmoMap;
+
+	/*
+	 * Reloading
+	 */
+	UPROPERTY(ReplicatedUsing = OnRep_CombatState)
+	ECombatState CombatState = ECombatState::ECS_Unoccupied;
 	
 public:	
 	UCombatComponent();
 	friend ABlasterCharacter;
-
+	
+	UFUNCTION(Server, Reliable)
+	void ServerSetAiming(bool bIsAiming);
+	
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	void SetAiming(bool bIsAiming);
 	void FireButtonPressed(bool bPressed);
-
-	void SetHUDCrosshairs(float DeltaTime);
+	void Reload();
 	
-	UFUNCTION(Server, Reliable)
-	void ServerSetAiming(bool bIsAiming);
+	UFUNCTION(BlueprintCallable)
+	void FinishReloading();
+	
+	void SetHUDCrosshairs(float DeltaTime);
 	
 protected:
 	virtual void BeginPlay() override;
+	void InitializeCarriedAmmo();
 
 	UPROPERTY(ReplicatedUsing = OnRep_EquippedWeapon)
 	AWeaponBase* EquippedWeapon;
@@ -86,9 +110,27 @@ protected:
 	void EquipWeapon(AWeaponBase* WeaponToEquip);
 	void TraceUnderCrosshairs(FHitResult& HitResult);
 	bool CanFire();
+
+	/*
+	 * Reloading
+	 */
+	void HandleReload();
+	int32 AmountToReload();
+
+	/*
+	 * Multiplayer
+	 */
+	UFUNCTION(Server, Reliable)
+	void ServerReload();
 	
 	UFUNCTION()
 	void OnRep_EquippedWeapon();
+
+	UFUNCTION()
+	void OnRep_CarriedAmmo();
+
+	UFUNCTION()
+	void OnRep_CombatState();
 
 private:
 	UFUNCTION(Server, Reliable)
@@ -102,4 +144,6 @@ private:
 	void StartFireTimer();
 	void FireTimerFinished();
 	void Fire();
+
+	void UpdateAmmoValues();
 };

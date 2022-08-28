@@ -192,6 +192,12 @@ void AWeaponBase::Dropped()
 	BlasterOwnerController = nullptr;
 }
 
+void AWeaponBase::AddAmmo(const int32 AmmoToAdd)
+{
+	Ammo = FMath::Clamp(Ammo - AmmoToAdd, 0.f, MagCapacity);
+	SetHUDAmmo();
+}
+
 void AWeaponBase::SpendRound()
 {
 	Ammo = FMath::Clamp(Ammo - 1, 0, MagCapacity);

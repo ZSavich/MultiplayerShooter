@@ -44,10 +44,13 @@ public:
 
 	void PlayFireMontage(bool bAiming);
 	void PlayEliminateMontage();
-
+	void PlayReloadMontage();
+	
 	void Eliminate();
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastEliminate();
+
+	ECombatState GetCombatState() const;
 	
 	FORCEINLINE float GetAO_Yaw() const { return AO_Yaw; }
 	FORCEINLINE float GetAO_Pitch() const { return AO_Pitch; }
@@ -60,7 +63,7 @@ public:
 	
 protected:
 	virtual void BeginPlay() override;
-
+	virtual void Jump() override;
 	void MoveForward(const float Value);
 	void MoveRight(const float Value);
 	void LookUp(const float Value);
@@ -70,10 +73,11 @@ protected:
 	void AimButtonPressed();
 	void AimButtonReleased();
 	void AimOffset(float DeltaTime);
-	virtual void Jump() override;
 
 	void FireButtonPressed();
 	void FireButtonReleased();
+
+	void ReloadButtonPressed();
 	
 	void TurnInPlace(float DeltaTime);
 
@@ -125,6 +129,9 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Animations")
 	UAnimMontage* EliminateMontage;
+
+	UPROPERTY(EditAnywhere, Category = "Animations")
+	UAnimMontage* ReloadMontage;
 
 	UPROPERTY()
 	ABlasterPlayerController* BlasterPlayerController;

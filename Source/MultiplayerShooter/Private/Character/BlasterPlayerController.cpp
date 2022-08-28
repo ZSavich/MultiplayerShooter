@@ -12,6 +12,23 @@ void ABlasterPlayerController::BeginPlay()
 	BlasterHUD = Cast<ABlasterHUD>(GetHUD());
 }
 
+void ABlasterPlayerController::Tick(float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+	SetHUDTime();
+	CheckTimeSync(DeltaSeconds);
+}
+
+void ABlasterPlayerController::CheckTimeSync(float DeltaTime)
+{
+	TimeSyncRunningTime += DeltaTime;
+	if (IsLocalController() && TimeSyncRunningTime > TimeSyncFrequency)
+	{
+		ServerRequestServerTime(GetWorld()->GetTimeSeconds());
+		TimeSyncRunningTime = 0.f;
+	}
+}
+
 void ABlasterPlayerController::OnPossess(APawn* InPawn)
 {
 	Super::OnPossess(InPawn);
@@ -19,6 +36,24 @@ void ABlasterPlayerController::OnPossess(APawn* InPawn)
 	{
 		SetHUDHealth(BlasterCharacter->GetHealth(), BlasterCharacter->GetMaxHealth());
 	}
+}
+
+void ABlasterPlayerController::ReceivedPlayer()
+{
+	Super::ReceivedPlayer();
+	if (IsLocalController())
+	{
+		ServerRequestServerTime(GetWorld()->GetTimeSeconds());
+	}
+}
+
+float ABlasterPlayerController::GetServerTime()
+{
+	if (HasAuthority())
+	{
+		return GetWorld()->GetTimeSeconds();
+	}
+	return GetWorld()->GetTimeSeconds() + ClientServerDelta;
 }
 
 void ABlasterPlayerController::SetHUDHealth(const float Health, const float MaxHealth)
@@ -80,4 +115,84 @@ void ABlasterPlayerController::SetHUDWeaponAmmo(const int32 Ammo)
 		const FString WeaponAmmoText = FString::Printf(TEXT("%d"), Ammo);
 		BlasterHUD->CharacterOverlay->WeaponAmmoAmount->SetText(FText::FromString(WeaponAmmoText));
 	}
+}
+
+void ABlasterPlayerController::SetHUDCarriedAmmo(const int32 Ammo)
+{
+	BlasterHUD = BlasterHUD == nullptr ? GetHUD<ABlasterHUD>() : BlasterHUD;
+	const bool bHUDValid =
+		BlasterHUD &&
+		BlasterHUD->CharacterOverlay &&
+		BlasterHUD->CharacterOverlay->CarriedAmmoAmount;
+	if (bHUDValid)
+	{
+		const FString WeaponAmmoText = FString::Printf(TEXT("%d"), Ammo);
+		BlasterHUD->CharacterOverlay->CarriedAmmoAmount->SetText(FText::FromString(WeaponAmmoText));
+	}
+}
+
+void ABlasterPlayerController::SetHUDWeaponType(const EWeaponType& WeaponType)
+{
+	BlasterHUD = BlasterHUD == nullptr ? GetHUD<ABlasterHUD>() : BlasterHUD;
+	const bool bHUDValid =
+		BlasterHUD &&
+		BlasterHUD->CharacterOverlay &&
+		BlasterHUD->CharacterOverlay->WeaponTypeText;
+	if (bHUDValid)
+	{
+		FString WeaponTypeText;
+		switch (WeaponType)
+		{
+		case EWeaponType::EWT_AssaultRifle:
+			WeaponTypeText = TEXT("Rifle Weapon");
+			break;
+		case EWeaponType::EWT_MAX:
+			WeaponTypeText = TEXT("Unknown Weapon");
+			break;
+		default:
+			WeaponTypeText = TEXT("");
+			break;
+		}
+		BlasterHUD->CharacterOverlay->WeaponTypeText->SetText(FText::FromString(WeaponTypeText));
+	}
+}
+
+void ABlasterPlayerController::SetHUDMatchCountdown(const float CountdownTime)
+{
+	BlasterHUD = BlasterHUD == nullptr ? GetHUD<ABlasterHUD>() : BlasterHUD;
+	const bool bHUDValid =
+		BlasterHUD &&
+		BlasterHUD->CharacterOverlay &&
+		BlasterHUD->CharacterOverlay->MatchCountdownText;
+	if (bHUDValid)
+	{
+		const int32 Minutes = FMath::FloorToInt(CountdownTime / 60);
+		const int32 Seconds = CountdownTime - Minutes * 60;
+		const FString CountdownText = FString::Printf(TEXT("%02d:%02d"), Minutes, Seconds);
+		BlasterHUD->CharacterOverlay->MatchCountdownText->SetText(FText::FromString(CountdownText));
+	}
+}
+
+void ABlasterPlayerController::SetHUDTime()
+{
+	const int32 SecondsLeft = FMath::CeilToInt(MatchTime - GetServerTime());
+	if (CountdownInt != SecondsLeft)
+	{
+		SetHUDMatchCountdown(MatchTime - GetServerTime());
+	}
+	CountdownInt = SecondsLeft;
+}
+
+void ABlasterPlayerController::ClientReportServerTime_Implementation(float TimeOfClientRequest,
+	float TimeServerReceivedClientRequest)
+{
+	const float RoundTripTime = GetWorld()->GetTimeSeconds() - TimeOfClientRequest;
+	const float CurrentServerTime = TimeServerReceivedClientRequest + (0.5f * RoundTripTime);
+	ClientServerDelta = CurrentServerTime - GetWorld()->GetTimeSeconds();
+}
+
+void ABlasterPlayerController::ServerRequestServerTime_Implementation(float TimeOfClientRequest)
+{
+	const float ServerTimeOfReceipt = GetWorld()->GetTimeSeconds();
+	ClientReportServerTime(TimeOfClientRequest, ServerTimeOfReceipt);
 }

@@ -74,9 +74,9 @@ void ABlasterCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 	PlayerInputComponent->BindAction("Crouch", IE_Pressed, this, &ABlasterCharacter::CrouchButtonPressed);
 	PlayerInputComponent->BindAction("Aim", IE_Pressed, this, &ABlasterCharacter::AimButtonPressed);
 	PlayerInputComponent->BindAction("Aim", IE_Released, this, &ABlasterCharacter::AimButtonReleased);
-	
 	PlayerInputComponent->BindAction("Fire", IE_Pressed, this, &ABlasterCharacter::FireButtonPressed);
 	PlayerInputComponent->BindAction("Fire", IE_Released, this, &ABlasterCharacter::FireButtonReleased);
+	PlayerInputComponent->BindAction("Reload", IE_Pressed, this, &ABlasterCharacter::ReloadButtonPressed);
 
 	PlayerInputComponent->BindAxis("MoveForward", this, &ABlasterCharacter::MoveForward);
 	PlayerInputComponent->BindAxis("MoveRight", this, &ABlasterCharacter::MoveRight);
@@ -529,6 +529,14 @@ void ABlasterCharacter::FireButtonReleased()
 	}
 }
 
+void ABlasterCharacter::ReloadButtonPressed()
+{
+	if (CombatComponent)
+	{
+		CombatComponent->Reload();
+	}
+}
+
 void ABlasterCharacter::PlayFireMontage(bool bAiming)
 {
 	if (!CombatComponent || !CombatComponent->EquippedWeapon)
@@ -551,6 +559,28 @@ void ABlasterCharacter::PlayEliminateMontage()
 	if (AnimInstance && EliminateMontage)
 	{
 		AnimInstance->Montage_Play(EliminateMontage);
+	}
+}
+
+void ABlasterCharacter::PlayReloadMontage()
+{
+	if (!CombatComponent || !CombatComponent->EquippedWeapon)
+	{
+		return;
+	}
+
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance && ReloadMontage)
+	{
+		AnimInstance->Montage_Play(ReloadMontage);
+		FName SectionName;
+		switch (CombatComponent->EquippedWeapon->GetWeaponType())
+		{
+		case EWeaponType::EWT_AssaultRifle:
+			SectionName = TEXT("Rifle");
+			break;
+		}
+		AnimInstance->Montage_JumpToSection(SectionName, ReloadMontage);
 	}
 }
 
@@ -581,6 +611,15 @@ void ABlasterCharacter::Eliminate()
 			GetActorLocation()
 		);
 	}
+}
+
+ECombatState ABlasterCharacter::GetCombatState() const
+{
+	if (CombatComponent)
+	{
+		return CombatComponent->CombatState;
+	}
+	return ECombatState::ESC_MAX;
 }
 
 void ABlasterCharacter::MulticastEliminate_Implementation()
