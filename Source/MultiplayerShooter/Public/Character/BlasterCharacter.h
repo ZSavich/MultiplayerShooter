@@ -20,90 +20,6 @@ UCLASS()
 class MULTIPLAYERSHOOTER_API ABlasterCharacter : public ACharacter, public IInteractWithCrosshairsInterface
 {
 	GENERATED_BODY()
-	
-public:
-	UPROPERTY()
-	ABlasterPlayerState* BlasterPlayerState;
-	
-public:
-	ABlasterCharacter();
-	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
-	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
-	virtual void PostInitializeComponents() override;
-	virtual void Tick(float DeltaSeconds) override;
-	virtual void OnRep_ReplicatedMovement() override;
-	virtual void Destroyed() override;
-	
-	void SetOverlappingWeapon(AWeaponBase* Weapon);
-	bool IsWeaponEquipped() const;
-
-	bool GetIsAiming() const;
-	AWeaponBase* GetEquippedWeapon() const;
-
-	FVector GetHitTarget() const;
-
-	void PlayFireMontage(bool bAiming);
-	void PlayEliminateMontage();
-	void PlayReloadMontage();
-	
-	void Eliminate();
-	UFUNCTION(NetMulticast, Reliable)
-	void MulticastEliminate();
-
-	ECombatState GetCombatState() const;
-	
-	FORCEINLINE float GetAO_Yaw() const { return AO_Yaw; }
-	FORCEINLINE float GetAO_Pitch() const { return AO_Pitch; }
-	FORCEINLINE ETurningInPlace GetTurningInPlace() const { return TurningInPlace; }
-	FORCEINLINE UCameraComponent* GetFollowCamera() const { return FollowCamera; }
-	FORCEINLINE bool ShouldRotateRootBone() const { return bRotateRootBone; }
-	FORCEINLINE bool IsEliminated() const { return bIsEliminated; }
-	FORCEINLINE float GetHealth() const { return Health; }
-	FORCEINLINE float GetMaxHealth() const { return MaxHealth; }
-	
-protected:
-	virtual void BeginPlay() override;
-	virtual void Jump() override;
-	void MoveForward(const float Value);
-	void MoveRight(const float Value);
-	void LookUp(const float Value);
-	void Turn(const float Value);
-	void EquipButtonPressed();
-	void CrouchButtonPressed();
-	void AimButtonPressed();
-	void AimButtonReleased();
-	void AimOffset(float DeltaTime);
-
-	void FireButtonPressed();
-	void FireButtonReleased();
-
-	void ReloadButtonPressed();
-	
-	void TurnInPlace(float DeltaTime);
-
-	void SimProxiesTurn();
-	
-	void PollInit();
-
-	/*
-	 * Eliminate Bot 
-	 */
-	UPROPERTY(EditAnywhere, Category = "Eliminate Bot")
-	UParticleSystem* ElimBotParticleFX;
-
-	UPROPERTY(VisibleAnywhere, Category = "Eliminate Bot")
-	UParticleSystemComponent* ElimBotComponent;
-
-	UPROPERTY(EditAnywhere, Category = "Eliminate Bot")
-	USoundCue* ElimBotSoundFX;
-	
-	
-	UFUNCTION(Server, Reliable)
-	void ServerEquipButtonPressed();
-
-	UFUNCTION()
-	void ReceivedDamage(AActor* DamagedActor, float Damage, const class UDamageType* DamageType, class AController* InstigatedBy, AActor* DamageCauser );
-	void UpdateHUDHealth();
 
 private:
 	UPROPERTY(VisibleAnywhere, Category = "Camera")
@@ -168,7 +84,6 @@ private:
 	 * Elimination
 	 */
 	FTimerHandle EliminateTimerHandle;
-	void EliminateTimerFinished();
 	float EliminateDelay = 3.f;
 
 	/*
@@ -188,6 +103,27 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Dissolve effect")
 	UMaterialInstance* DissolveMaterialInstance;
 
+protected:
+	/*
+	 * Eliminate Bot 
+	 */
+	UPROPERTY(EditAnywhere, Category = "Eliminate Bot")
+	UParticleSystem* ElimBotParticleFX;
+
+	UPROPERTY(VisibleAnywhere, Category = "Eliminate Bot")
+	UParticleSystemComponent* ElimBotComponent;
+
+	UPROPERTY(EditAnywhere, Category = "Eliminate Bot")
+	USoundCue* ElimBotSoundFX;
+	
+public:
+	UPROPERTY()
+	ABlasterPlayerState* BlasterPlayerState;
+
+	UPROPERTY(Replicated)
+	bool bDisableGameplay = false;
+	
+private:
 	UFUNCTION()
 	void UpdateDissolveMaterial(const float DissolveValue);
 	void StartDissolve();
@@ -202,4 +138,78 @@ private:
 	void PlayHitReactMontage();
 	float CalculateSpeed() const;
 	void CalculateAO_Pitch();
+	
+	void EliminateTimerFinished();
+	
+protected:
+	UFUNCTION(Server, Reliable)
+	void ServerEquipButtonPressed();
+
+	UFUNCTION()
+	void ReceivedDamage(AActor* DamagedActor, float Damage, const class UDamageType* DamageType, class AController* InstigatedBy, AActor* DamageCauser );
+	
+	virtual void BeginPlay() override;
+	virtual void Jump() override;
+	
+	void UpdateHUDHealth();
+	void MoveForward(const float Value);
+	void MoveRight(const float Value);
+	void LookUp(const float Value);
+	void Turn(const float Value);
+	void EquipButtonPressed();
+	void CrouchButtonPressed();
+	void AimButtonPressed();
+	void AimButtonReleased();
+	void AimOffset(float DeltaTime);
+
+	void FireButtonPressed();
+	void FireButtonReleased();
+
+	void ReloadButtonPressed();
+	
+	void TurnInPlace(float DeltaTime);
+
+	void SimProxiesTurn();
+	
+	void PollInit();
+
+	void RotateInPlace(const float DeltaTime);
+	
+public:
+	ABlasterCharacter();
+	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual void PostInitializeComponents() override;
+	virtual void Tick(float DeltaSeconds) override;
+	virtual void OnRep_ReplicatedMovement() override;
+	virtual void Destroyed() override;
+	
+	void SetOverlappingWeapon(AWeaponBase* Weapon);
+	bool IsWeaponEquipped() const;
+
+	bool GetIsAiming() const;
+	AWeaponBase* GetEquippedWeapon() const;
+
+	FVector GetHitTarget() const;
+
+	void PlayFireMontage(bool bAiming);
+	void PlayEliminateMontage();
+	void PlayReloadMontage();
+	
+	void Eliminate();
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastEliminate();
+
+	ECombatState GetCombatState() const;
+	
+	FORCEINLINE float GetAO_Yaw() const { return AO_Yaw; }
+	FORCEINLINE float GetAO_Pitch() const { return AO_Pitch; }
+	FORCEINLINE ETurningInPlace GetTurningInPlace() const { return TurningInPlace; }
+	FORCEINLINE UCameraComponent* GetFollowCamera() const { return FollowCamera; }
+	FORCEINLINE bool ShouldRotateRootBone() const { return bRotateRootBone; }
+	FORCEINLINE bool IsEliminated() const { return bIsEliminated; }
+	FORCEINLINE float GetHealth() const { return Health; }
+	FORCEINLINE float GetMaxHealth() const { return MaxHealth; }
+	FORCEINLINE UCombatComponent* GetCombatComponent() const { return CombatComponent; }
+	FORCEINLINE bool GetDisableGameplay() const { return bDisableGameplay; }
 };

@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "AnnouncementWidget.h"
 #include "GameFramework/HUD.h"
 #include "BlasterHUD.generated.h"
 
@@ -40,8 +41,6 @@ class MULTIPLAYERSHOOTER_API ABlasterHUD : public AHUD
 private:
 	FHUDPackage HUDPackage;
 	float CrosshairSpreadMax = 16.f;
-	
-	void DrawCrosshair(UTexture2D* Texture, FVector2D ViewportCenter, FVector2D Spread, FLinearColor Color);
 
 public:
 	UPROPERTY(EditDefaultsOnly, Category = "Widgets")
@@ -49,13 +48,25 @@ public:
 
 	UPROPERTY()
 	UCharacterOverlayWidget* CharacterOverlay;
-	
-	virtual void DrawHUD() override;
 
-	FORCEINLINE void SetHUDPackage(const FHUDPackage& Package) { HUDPackage = Package; }
+	UPROPERTY(EditDefaultsOnly, Category = "Widgets")
+	TSubclassOf<UAnnouncementWidget> AnnouncementClass;
+
+	UPROPERTY()
+	UAnnouncementWidget* AnnouncementWidget;
+
+private:
+	void DrawCrosshair(UTexture2D* Texture, FVector2D ViewportCenter, FVector2D Spread, FLinearColor Color);
 
 protected:
 	virtual void BeginPlay() override;
 	
+public:
+	virtual void DrawHUD() override;
+	
 	void AddCharacterOverlay();
+	void AddAnnouncementWidget();
+
+	FORCEINLINE void SetHUDPackage(const FHUDPackage& Package) { HUDPackage = Package; }
+
 };
