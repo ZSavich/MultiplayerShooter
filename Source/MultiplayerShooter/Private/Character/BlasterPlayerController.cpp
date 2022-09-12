@@ -68,9 +68,21 @@ void ABlasterPlayerController::PollInit()
 			CharacterOverlayWidget = BlasterHUD->CharacterOverlay;
 			if (CharacterOverlayWidget)
 			{
-				SetHUDHealth(HUDHealth, HUDMaxHealth);
-				SetHUDScore(HUDScore);
-				SetHUDDefeats(HUDDefeats);
+				if (bInitializeHealth) SetHUDHealth(HUDHealth, HUDMaxHealth);
+				if (bInitializeShield) SetHUDShield(HUDShield, HUDMaxShield);
+				if (bInitializeScore) SetHUDScore(HUDScore);
+				if (bInitializeDefeats) SetHUDDefeats(HUDDefeats);
+				if (bInitializeCarriedAmmo) SetHUDCarriedAmmo(HUDCarriedAmmo);
+				if (bInitializeWeaponAmmo) SetHUDWeaponAmmo(HUDWeaponAmmo);
+
+				if (const ABlasterCharacter* BlasterCharacter = GetPawn<ABlasterCharacter>())
+				{
+					if (BlasterCharacter->GetCombatComponent())
+					{
+						HUDGrenades = BlasterCharacter->GetCombatComponent()->GetGrenades();
+					}
+				}
+				if (bInitializeGrenades) SetHUDGrenades(HUDGrenades);
 			}
 		}
 	}
@@ -81,7 +93,10 @@ void ABlasterPlayerController::HandleMatchHasStarted()
 	BlasterHUD = BlasterHUD == nullptr ? GetHUD<ABlasterHUD>() : BlasterHUD;
 	if (BlasterHUD)
 	{
-		BlasterHUD->AddCharacterOverlay();
+		if (BlasterHUD->CharacterOverlay == nullptr)
+		{
+			BlasterHUD->AddCharacterOverlay();
+		}
 		if (BlasterHUD->AnnouncementWidget)
 		{
 			BlasterHUD->AnnouncementWidget->SetVisibility(ESlateVisibility::Hidden);
@@ -194,9 +209,34 @@ void ABlasterPlayerController::SetHUDHealth(const float Health, const float MaxH
 	}
 	else
 	{
-		bInitializedCharacterOverlay = true;
+		bInitializeHealth = true;
 		HUDHealth = Health;
 		HUDMaxHealth = MaxHealth;
+	}
+}
+
+void ABlasterPlayerController::SetHUDShield(const float Shield, const float MaxShield)
+{
+	BlasterHUD = BlasterHUD == nullptr ? Cast<ABlasterHUD>(GetHUD()) : BlasterHUD;
+	const bool bHUDValid =
+		BlasterHUD &&
+		BlasterHUD->CharacterOverlay &&
+		BlasterHUD->CharacterOverlay->ShieldBar &&
+		BlasterHUD->CharacterOverlay->ShieldText;
+
+	if (bHUDValid)
+	{
+		const float HealthPercent = Shield / MaxShield;
+		BlasterHUD->CharacterOverlay->ShieldBar->SetPercent(HealthPercent);
+
+		const FString ShieldText = FString::Printf(TEXT("%d / %d"), FMath::CeilToInt(Shield), FMath::CeilToInt(MaxShield));
+		BlasterHUD->CharacterOverlay->ShieldText->SetText(FText::FromString(ShieldText));
+	}
+	else
+	{
+		bInitializeShield = true;
+		HUDShield = Shield;
+		HUDMaxShield = MaxShield;
 	}
 }
 
@@ -214,7 +254,7 @@ void ABlasterPlayerController::SetHUDScore(const float Score)
 	}
 	else
 	{
-		bInitializedCharacterOverlay = true;
+		bInitializeScore = true;
 		HUDScore = Score;
 	}
 }
@@ -233,7 +273,7 @@ void ABlasterPlayerController::SetHUDDefeats(const int32 Defeats)
 	}
 	else
 	{
-		bInitializedCharacterOverlay = true;
+		bInitializeDefeats = true;
 		HUDDefeats = Defeats;
 	}
 }
@@ -250,6 +290,11 @@ void ABlasterPlayerController::SetHUDWeaponAmmo(const int32 Ammo)
 		const FString WeaponAmmoText = FString::Printf(TEXT("%d"), Ammo);
 		BlasterHUD->CharacterOverlay->WeaponAmmoAmount->SetText(FText::FromString(WeaponAmmoText));
 	}
+	else
+	{
+		bInitializeWeaponAmmo = true;
+		HUDWeaponAmmo = Ammo;
+	}
 }
 
 void ABlasterPlayerController::SetHUDCarriedAmmo(const int32 Ammo)
@@ -263,6 +308,11 @@ void ABlasterPlayerController::SetHUDCarriedAmmo(const int32 Ammo)
 	{
 		const FString WeaponAmmoText = FString::Printf(TEXT("%d"), Ammo);
 		BlasterHUD->CharacterOverlay->CarriedAmmoAmount->SetText(FText::FromString(WeaponAmmoText));
+	}
+	else
+	{
+		bInitializeCarriedAmmo = true;
+		HUDCarriedAmmo = Ammo;
 	}
 }
 
@@ -280,6 +330,24 @@ void ABlasterPlayerController::SetHUDWeaponType(const EWeaponType& WeaponType)
 		{
 		case EWeaponType::EWT_AssaultRifle:
 			WeaponTypeText = TEXT("Rifle Weapon");
+			break;
+		case EWeaponType::EWT_RocketLauncher:
+			WeaponTypeText = TEXT("Rocket Launcher");
+			break;
+		case EWeaponType::EWT_Pistol:
+			WeaponTypeText = TEXT("Pistol");
+			break;
+		case EWeaponType::EWT_SubmachineGun:
+			WeaponTypeText = TEXT("SMG");
+			break;
+		case EWeaponType::EWT_Shotgun:
+			WeaponTypeText = TEXT("Shotgun");
+			break;
+		case EWeaponType::EWT_SniperRifle:
+			WeaponTypeText = TEXT("Sniper Rifle");
+			break;
+		case EWeaponType::EWT_GrenadeLauncher:
+			WeaponTypeText = TEXT("Grenade Launcher");
 			break;
 		case EWeaponType::EWT_MAX:
 			WeaponTypeText = TEXT("Unknown Weapon");
@@ -331,6 +399,25 @@ void ABlasterPlayerController::SetHUDAnnouncementCountdown(const float Countdown
 		const int32 Seconds = CountdownTime - Minutes * 60;
 		const FString CountdownText = FString::Printf(TEXT("%02d:%02d"), Minutes, Seconds);
 		BlasterHUD->AnnouncementWidget->WarmupTime->SetText(FText::FromString(CountdownText));
+	}
+}
+
+void ABlasterPlayerController::SetHUDGrenades(const int32 Grenades)
+{
+	BlasterHUD = BlasterHUD == nullptr ? GetHUD<ABlasterHUD>() : BlasterHUD;
+	const bool bHUDValid =
+		BlasterHUD &&
+		BlasterHUD->CharacterOverlay &&
+		BlasterHUD->CharacterOverlay->GrenadesText;
+	if (bHUDValid)
+	{
+		const FString GrenadesString = FString::Printf(TEXT("%d"), Grenades);
+		BlasterHUD->CharacterOverlay->GrenadesText->SetText(FText::FromString(GrenadesString));
+	}
+	else
+	{
+		bInitializeGrenades = true;
+		HUDGrenades = Grenades;
 	}
 }
 

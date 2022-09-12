@@ -24,6 +24,12 @@ public:
 	UTextBlock* HealthText{nullptr};
 
 	UPROPERTY(meta = (BindWidget))
+	UProgressBar* ShieldBar{nullptr};
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* ShieldText{nullptr};
+
+	UPROPERTY(meta = (BindWidget))
 	UTextBlock* ScoreAmount{nullptr};
 
 	UPROPERTY(meta = (BindWidget))
@@ -40,4 +46,7 @@ public:
 
 	UPROPERTY(meta = (BindWidget))
 	UTextBlock* WeaponTypeText{nullptr};
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* GrenadesText;
 };

@@ -16,11 +16,12 @@ class ABlasterPlayerController;
 UENUM()
 enum class EWeaponState : uint8
 {
-	EWS_Initial		UMETA(DisplayName = "Initial State"),
-	EWS_Equipped	UMETA(DisplayName = "Equipped State"),
-	EWS_Dropped		UMETA(DisplayName = "Dropped State"),
+	EWS_Initial				UMETA(DisplayName = "Initial State"),
+	EWS_Equipped			UMETA(DisplayName = "Equipped State"),
+	EWS_EquippedSecondary	UMETA(DisplayName = "Equipped Secondary"),
+	EWS_Dropped				UMETA(DisplayName = "Dropped State"),
 
-	EWS_MAX			UMETA(Hidden)
+	EWS_MAX					UMETA(Hidden)
 };
 
 UCLASS()
@@ -80,6 +81,8 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Sounds")
 	USoundCue* EquipSoundFX;
+
+	bool bDestroyWeapon = false;
 	
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
@@ -103,6 +106,11 @@ protected:
 	virtual void BeginPlay() override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	
+	virtual void OnWeaponStateSet();
+	virtual void OnEquipped();
+	virtual void OnDropped();
+	virtual void OnEquippedSecondary();
+	
 	UFUNCTION()
 	void OnSphereOverlapped(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult & SweepResult);
 
@@ -114,13 +122,15 @@ protected:
 
 public:
 	virtual void OnRep_Owner() override;
-	void ShowPickupWidget(bool IsVisible) const;
 	virtual void Fire(const FVector& HitTarget);
 
 	void SetHUDAmmo();
 	bool IsEmpty();
+	bool IsFull();
 	void Dropped();
 	void AddAmmo(const int32 AmmoToAdd);
+	void ShowPickupWidget(bool IsVisible) const;
+	void EnableCustomDepth(const bool bEnable);
 
 	FORCEINLINE void SetWeaponState(EWeaponState InWeaponState);
 	FORCEINLINE USkeletalMeshComponent* GetWeaponMesh() const { return WeaponMeshComponent; }

@@ -35,13 +35,24 @@ private:
 	float LevelStartingTime = 0.f;
 	float CooldownTime = 0.f;
 
-	bool bInitializedCharacterOverlay = false;
+	bool bInitializeHealth = false;
+	bool bInitializeScore = false;
+	bool bInitializeDefeats = false;
+	bool bInitializeGrenades = false;
+	bool bInitializeShield = false;
+	bool bInitializeCarriedAmmo = false;
+	bool bInitializeWeaponAmmo = false;
 
 	float HUDHealth;
 	float HUDMaxHealth;
+	float HUDShield;
+	float HUDMaxShield;
 	float HUDScore;
+	float HUDCarriedAmmo;
+	float HUDWeaponAmmo;
 	int32 HUDDefeats;
-
+	int32 HUDGrenades;
+	
 protected:
 	UPROPERTY(EditAnywhere, Category = "Time")
 	float TimeSyncFrequency = 5.f;
@@ -82,6 +93,7 @@ public:
 	void HandleMatchHasStarted();
 	
 	void SetHUDHealth(const float Health, const float MaxHealth);
+	void SetHUDShield(const float Shield, const float MaxShield);
 	void SetHUDScore(const float Score);
 	void SetHUDDefeats(const int32 Defeats);
 	void SetHUDWeaponAmmo(const int32 Ammo);
@@ -89,6 +101,7 @@ public:
 	void SetHUDWeaponType(const EWeaponType& WeaponType);
 	void SetHUDMatchCountdown(const float CountdownTime);
 	void SetHUDAnnouncementCountdown(const float CountdownTime);
+	void SetHUDGrenades(const int32 Grenades);
 	
 	void OnMatchStateSet(FName State);
 };

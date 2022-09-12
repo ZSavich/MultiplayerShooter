@@ -15,12 +15,16 @@ AWeaponBase::AWeaponBase()
 {
  	PrimaryActorTick.bCanEverTick = false;
 	bReplicates = true;
+	SetReplicateMovement(true);
 
 	WeaponMeshComponent = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("WeaponMesh"));
 	SetRootComponent(WeaponMeshComponent);
 	WeaponMeshComponent->SetCollisionResponseToAllChannels(ECR_Block);
 	WeaponMeshComponent->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
 	WeaponMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	WeaponMeshComponent->SetCustomDepthStencilValue(CUSTOM_DEPTH_BLUE);
+	WeaponMeshComponent->MarkRenderStateDirty();
+	EnableCustomDepth(true);
 
 	AreaSphere = CreateDefaultSubobject<USphereComponent>(TEXT("AreaSphere"));
 	AreaSphere->SetupAttachment(RootComponent);
@@ -54,11 +58,17 @@ void AWeaponBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifet
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AWeaponBase, WeaponState);
+	DOREPLIFETIME(AWeaponBase, Ammo);
 }
 
 bool AWeaponBase::IsEmpty()
 {
 	return Ammo <= 0;
+}
+
+bool AWeaponBase::IsFull()
+{
+	return Ammo == MagCapacity;
 }
 
 void AWeaponBase::OnSphereOverlapped(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,
@@ -87,46 +97,93 @@ void AWeaponBase::ShowPickupWidget(bool IsVisible) const
 	}
 }
 
+void AWeaponBase::EnableCustomDepth(const bool bEnable)
+{
+	if (WeaponMeshComponent)
+	{
+		WeaponMeshComponent->SetRenderCustomDepth(bEnable);
+	}
+}
+
 void AWeaponBase::SetWeaponState(EWeaponState InWeaponState)
 {
 	WeaponState = InWeaponState;
-	switch (WeaponState)
-	{
-	case EWeaponState::EWS_Equipped:
-		ShowPickupWidget(false);
-		AreaSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-		WeaponMeshComponent->SetSimulatePhysics(false);
-		WeaponMeshComponent->SetEnableGravity(false);
-		WeaponMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-		break;
-	case EWeaponState::EWS_Dropped:
-		if (HasAuthority())
-		{
-			AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-		}
-		WeaponMeshComponent->SetSimulatePhysics(true);
-		WeaponMeshComponent->SetEnableGravity(true);
-		WeaponMeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-		break;
-	}
+	OnWeaponStateSet();
 }
 
 void AWeaponBase::OnRep_WeaponState()
 {
+	OnWeaponStateSet();
+}
+
+void AWeaponBase::OnWeaponStateSet()
+{
 	switch (WeaponState)
 	{
 	case EWeaponState::EWS_Equipped:
-		ShowPickupWidget(false);
-		WeaponMeshComponent->SetSimulatePhysics(false);
-		WeaponMeshComponent->SetEnableGravity(false);
-		WeaponMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		OnEquipped();
+		break;
+	case EWeaponState::EWS_EquippedSecondary:
+		OnEquippedSecondary();
 		break;
 	case EWeaponState::EWS_Dropped:
-		WeaponMeshComponent->SetSimulatePhysics(true);
-		WeaponMeshComponent->SetEnableGravity(true);
-		WeaponMeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+		OnDropped();
 		break;
 	}
+}
+
+void AWeaponBase::OnEquipped()
+{
+	if (!WeaponMeshComponent) return;
+	ShowPickupWidget(false);
+	AreaSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	WeaponMeshComponent->SetSimulatePhysics(false);
+	WeaponMeshComponent->SetEnableGravity(false);
+	WeaponMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	if (WeaponType == EWeaponType::EWT_SubmachineGun)
+	{
+		WeaponMeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+		WeaponMeshComponent->SetEnableGravity(true);
+		WeaponMeshComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
+	}
+	EnableCustomDepth(false);
+}
+
+void AWeaponBase::OnDropped()
+{
+	if (!WeaponMeshComponent) return;
+	if (HasAuthority())
+	{
+		AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	}
+	WeaponMeshComponent->SetSimulatePhysics(true);
+	WeaponMeshComponent->SetEnableGravity(true);
+	WeaponMeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	WeaponMeshComponent->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Block);
+	WeaponMeshComponent->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
+	WeaponMeshComponent->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
+	WeaponMeshComponent->SetCustomDepthStencilValue(CUSTOM_DEPTH_PURPLE);
+	WeaponMeshComponent->MarkRenderStateDirty();
+	EnableCustomDepth(true);
+}
+
+void AWeaponBase::OnEquippedSecondary()
+{
+	if (!WeaponMeshComponent) return;
+	ShowPickupWidget(false);
+	AreaSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	WeaponMeshComponent->SetSimulatePhysics(false);
+	WeaponMeshComponent->SetEnableGravity(false);
+	WeaponMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	if (WeaponType == EWeaponType::EWT_SubmachineGun)
+	{
+		WeaponMeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+		WeaponMeshComponent->SetEnableGravity(true);
+		WeaponMeshComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
+	}
+	EnableCustomDepth(true);
+	WeaponMeshComponent->SetCustomDepthStencilValue(CUSTOM_DEPTH_TAN);
+	WeaponMeshComponent->MarkRenderStateDirty();
 }
 
 void AWeaponBase::OnRep_Owner()
@@ -139,7 +196,11 @@ void AWeaponBase::OnRep_Owner()
 	}
 	else
 	{
-		SetHUDAmmo();
+		BlasterOwnerCharacter = BlasterOwnerCharacter == nullptr ? Cast<ABlasterCharacter>(Owner) : BlasterOwnerCharacter;
+		if (BlasterOwnerCharacter && BlasterOwnerCharacter->GetEquippedWeapon() && BlasterOwnerCharacter->GetEquippedWeapon() == this)
+		{
+			SetHUDAmmo();
+		}
 	}
 }
 
@@ -206,5 +267,10 @@ void AWeaponBase::SpendRound()
 
 void AWeaponBase::OnRep_Ammo()
 {
+	BlasterOwnerCharacter = BlasterOwnerCharacter == nullptr ? Cast<ABlasterCharacter>(GetOwner()) : BlasterOwnerCharacter;
+	if (BlasterOwnerCharacter && BlasterOwnerCharacter->GetCombatComponent() && IsFull())
+	{
+		BlasterOwnerCharacter->GetCombatComponent()->JumpToShotgunEnd();
+	}
 	SetHUDAmmo();
 }

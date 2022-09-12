@@ -11,6 +11,7 @@
 #include "PlayerStates/BlasterPlayerState.h"
 #include "BlasterCharacter.generated.h"
 
+class UBuffComponent;
 class UCameraComponent;
 class USpringArmComponent;
 class AWeaponBase;
@@ -31,8 +32,14 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = true))
 	UCombatComponent* CombatComponent;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = true))
+	UBuffComponent* BuffComponent;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Widgets", meta = (AllowPrivateAccess = true))
 	UWidgetComponent* OverheadWidget;
+
+	UPROPERTY(VisibleAnywhere)
+	UStaticMeshComponent* AttachedGrenadeMesh;
 
 	UPROPERTY(ReplicatedUsing = OnRep_OverlappingWeapon)
 	AWeaponBase* OverlappingWeapon;
@@ -48,6 +55,9 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Animations")
 	UAnimMontage* ReloadMontage;
+
+	UPROPERTY(EditAnywhere, Category = "Animations")
+	UAnimMontage* ThrowGrenadeMontage;
 
 	UPROPERTY()
 	ABlasterPlayerController* BlasterPlayerController;
@@ -81,6 +91,15 @@ private:
 	float Health = 100.f;
 
 	/*
+	 * Shield Properties
+	 */
+	UPROPERTY(EditDefaultsOnly, Category = "Player Stats")
+	float MaxShield = 100.f;
+
+	UPROPERTY(ReplicatedUsing = OnRep_Shield, EditDefaultsOnly, Category = "Player State")
+	float Shield = 0.f;
+	
+	/*
 	 * Elimination
 	 */
 	FTimerHandle EliminateTimerHandle;
@@ -102,6 +121,10 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Dissolve effect")
 	UMaterialInstance* DissolveMaterialInstance;
+
+	/* Default Weapon */
+	UPROPERTY(EditAnywhere)
+	TSubclassOf<AWeaponBase> DefaultWeaponClass;
 
 protected:
 	/*
@@ -132,7 +155,10 @@ private:
 	void OnRep_OverlappingWeapon(const AWeaponBase* LastWeapon);
 
 	UFUNCTION()
-	void OnRep_Health();
+	void OnRep_Health(float LastHealth);
+
+	UFUNCTION()
+	void OnRep_Shield(float LastShield);
 
 	void HideCameraIfCharacterClose();
 	void PlayHitReactMontage();
@@ -151,7 +177,6 @@ protected:
 	virtual void BeginPlay() override;
 	virtual void Jump() override;
 	
-	void UpdateHUDHealth();
 	void MoveForward(const float Value);
 	void MoveRight(const float Value);
 	void LookUp(const float Value);
@@ -161,6 +186,7 @@ protected:
 	void AimButtonPressed();
 	void AimButtonReleased();
 	void AimOffset(float DeltaTime);
+	void GrenadeButtonPressed();
 
 	void FireButtonPressed();
 	void FireButtonReleased();
@@ -174,9 +200,19 @@ protected:
 	void PollInit();
 
 	void RotateInPlace(const float DeltaTime);
+
+	void DropOrDestroyWeapon(AWeaponBase* Weapon);
+	void DropOrDestroyWeapons();
 	
 public:
 	ABlasterCharacter();
+
+	UFUNCTION(BlueprintImplementableEvent)
+	void ShowSniperScopeWidget(const bool bShowScope);
+	
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastEliminate();
+	
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void PostInitializeComponents() override;
@@ -187,6 +223,12 @@ public:
 	void SetOverlappingWeapon(AWeaponBase* Weapon);
 	bool IsWeaponEquipped() const;
 
+	void UpdateHUDHealth();
+	void UpdateHUDShield();
+	void UpdateHUDAmmo();
+
+	void SpawnDefaultWeapon();
+	
 	bool GetIsAiming() const;
 	AWeaponBase* GetEquippedWeapon() const;
 
@@ -195,10 +237,9 @@ public:
 	void PlayFireMontage(bool bAiming);
 	void PlayEliminateMontage();
 	void PlayReloadMontage();
+	void PlayThrowGrenadeMontage();
 	
 	void Eliminate();
-	UFUNCTION(NetMulticast, Reliable)
-	void MulticastEliminate();
 
 	ECombatState GetCombatState() const;
 	
@@ -209,7 +250,14 @@ public:
 	FORCEINLINE bool ShouldRotateRootBone() const { return bRotateRootBone; }
 	FORCEINLINE bool IsEliminated() const { return bIsEliminated; }
 	FORCEINLINE float GetHealth() const { return Health; }
+	FORCEINLINE void SetHealth(float Amount) { Health = Amount; }
 	FORCEINLINE float GetMaxHealth() const { return MaxHealth; }
+	FORCEINLINE float GetShield() const { return Shield; }
+	FORCEINLINE void SetShield(float Amount) { Shield = Amount; }
+	FORCEINLINE float GetMaxShield() const { return MaxShield; }
 	FORCEINLINE UCombatComponent* GetCombatComponent() const { return CombatComponent; }
+	FORCEINLINE UBuffComponent* GetBuffComponent() const { return BuffComponent; }
 	FORCEINLINE bool GetDisableGameplay() const { return bDisableGameplay; }
+	FORCEINLINE UAnimMontage* GetReloadMontage() const { return ReloadMontage; }
+	FORCEINLINE UStaticMeshComponent* GetAttachedGrenadeMesh() const { return AttachedGrenadeMesh; }
 };
