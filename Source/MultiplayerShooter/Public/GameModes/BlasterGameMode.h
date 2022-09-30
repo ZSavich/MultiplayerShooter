@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameMode.h"
+#include "PlayerStates/BlasterPlayerState.h"
 #include "BlasterGameMode.generated.h"
 
 class ABlasterCharacter;
@@ -43,6 +44,8 @@ public:
 	virtual void PlayerEliminated(ABlasterCharacter* EliminatedCharacter, ABlasterPlayerController* VictimController, ABlasterPlayerController* AttackerController);
 	virtual void RequestRespawn(AActor* EliminatedCharacter, AController* EliminatedController);
 	virtual void Tick(float DeltaSeconds) override;
+
+	void OnPlayerLeftGame(ABlasterPlayerState* PlayerLeaving);
 
 	FORCEINLINE float GetCountdownTime() const { return CooldownTime; }
 };

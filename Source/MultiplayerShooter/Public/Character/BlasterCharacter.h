@@ -11,11 +11,14 @@
 #include "PlayerStates/BlasterPlayerState.h"
 #include "BlasterCharacter.generated.h"
 
+class ULagCompensationComponent;
 class UBuffComponent;
 class UCameraComponent;
 class USpringArmComponent;
 class AWeaponBase;
 class UWidgetComponent;
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnLeftGame);
 
 UCLASS()
 class MULTIPLAYERSHOOTER_API ABlasterCharacter : public ACharacter, public IInteractWithCrosshairsInterface
@@ -34,6 +37,9 @@ private:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = true))
 	UBuffComponent* BuffComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = true))
+	ULagCompensationComponent* LagCompensationComponent;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Widgets", meta = (AllowPrivateAccess = true))
 	UWidgetComponent* OverheadWidget;
@@ -59,6 +65,9 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Animations")
 	UAnimMontage* ThrowGrenadeMontage;
 
+	UPROPERTY(EditAnywhere, Category = "Animations")
+	UAnimMontage* SwapMontage;
+
 	UPROPERTY()
 	ABlasterPlayerController* BlasterPlayerController;
 
@@ -80,6 +89,8 @@ private:
 	float CameraThreshold = 200.f;
 
 	bool bIsEliminated = false;
+
+	bool bLeftGame = false;
 
 	/*
 	 * Health Properties
@@ -126,6 +137,61 @@ private:
 	UPROPERTY(EditAnywhere)
 	TSubclassOf<AWeaponBase> DefaultWeaponClass;
 
+	/* Lag Compensation Boxes */
+	UPROPERTY(EditAnywhere)
+	UBoxComponent* head;
+
+	UPROPERTY(EditAnywhere)
+	UBoxComponent* pelvis;
+
+	UPROPERTY(EditAnywhere)
+	UBoxComponent* spine_02;
+
+	UPROPERTY(EditAnywhere)
+	UBoxComponent* spine_03;
+
+	UPROPERTY(EditAnywhere)
+	UBoxComponent* upperarm_l;
+
+	UPROPERTY(EditAnywhere)
+	UBoxComponent* upperarm_r;
+
+	UPROPERTY(EditAnywhere)
+	UBoxComponent* lowerarm_l;
+
+	UPROPERTY(EditAnywhere)
+	UBoxComponent* lowerarm_r;
+
+	UPROPERTY(EditAnywhere)
+	UBoxComponent* hand_l;
+
+	UPROPERTY(EditAnywhere)
+	UBoxComponent* hand_r;
+
+	UPROPERTY(EditAnywhere)
+	UBoxComponent* backpack;
+
+	UPROPERTY(EditAnywhere)
+	UBoxComponent* blanket;
+
+	UPROPERTY(EditAnywhere)
+	UBoxComponent* thigh_l;
+
+	UPROPERTY(EditAnywhere)
+	UBoxComponent* thigh_r;
+
+	UPROPERTY(EditAnywhere)
+	UBoxComponent* calf_l;
+
+	UPROPERTY(EditAnywhere)
+	UBoxComponent* calf_r;
+
+	UPROPERTY(EditAnywhere)
+	UBoxComponent* foot_l;
+
+	UPROPERTY(EditAnywhere)
+	UBoxComponent* foot_r;
+
 protected:
 	/*
 	 * Eliminate Bot 
@@ -138,6 +204,12 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category = "Eliminate Bot")
 	USoundCue* ElimBotSoundFX;
+
+	UPROPERTY(EditAnywhere, Category = "Niagara")
+	UNiagaraSystem* CrownNiagaraSystem;
+
+	UPROPERTY()
+	UNiagaraComponent* CrownNiagaraComponent;
 	
 public:
 	UPROPERTY()
@@ -145,6 +217,13 @@ public:
 
 	UPROPERTY(Replicated)
 	bool bDisableGameplay = false;
+
+	UPROPERTY()
+	TMap<FName, UBoxComponent*> HitCollisionBoxes;
+
+	bool bFinishedSwapping = false;
+	
+	FOnLeftGame OnLeftGame;
 	
 private:
 	UFUNCTION()
@@ -211,7 +290,16 @@ public:
 	void ShowSniperScopeWidget(const bool bShowScope);
 	
 	UFUNCTION(NetMulticast, Reliable)
-	void MulticastEliminate();
+	void MulticastEliminate(bool bPlayerLeftGame);
+
+	UFUNCTION(Server, Reliable)
+	void ServerLeaveGame();
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastGainedTheLead();
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastLostTheLead();
 	
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
@@ -238,10 +326,13 @@ public:
 	void PlayEliminateMontage();
 	void PlayReloadMontage();
 	void PlayThrowGrenadeMontage();
+	void PlaySwapMontage();
 	
-	void Eliminate();
+	void Eliminate(bool bPlayerLeftGame);
 
 	ECombatState GetCombatState() const;
+
+	bool IsLocallyReloading();
 	
 	FORCEINLINE float GetAO_Yaw() const { return AO_Yaw; }
 	FORCEINLINE float GetAO_Pitch() const { return AO_Pitch; }
@@ -257,6 +348,7 @@ public:
 	FORCEINLINE float GetMaxShield() const { return MaxShield; }
 	FORCEINLINE UCombatComponent* GetCombatComponent() const { return CombatComponent; }
 	FORCEINLINE UBuffComponent* GetBuffComponent() const { return BuffComponent; }
+	FORCEINLINE ULagCompensationComponent* GetLagCompensationComponent() const { return LagCompensationComponent; }
 	FORCEINLINE bool GetDisableGameplay() const { return bDisableGameplay; }
 	FORCEINLINE UAnimMontage* GetReloadMontage() const { return ReloadMontage; }
 	FORCEINLINE UStaticMeshComponent* GetAttachedGrenadeMesh() const { return AttachedGrenadeMesh; }

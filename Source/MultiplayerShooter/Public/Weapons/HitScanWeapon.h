@@ -10,21 +10,8 @@ UCLASS()
 class MULTIPLAYERSHOOTER_API AHitScanWeapon : public AWeaponBase
 {
 	GENERATED_BODY()
-
-private:
-	UPROPERTY(EditAnywhere, Category = "Weapon Scatter", meta = (EditCondition="bUseScatter"))
-	float DistanceToSphere = 800.f;
-
-	UPROPERTY(EditAnywhere, Category = "Weapon Scatter", meta = (EditCondition="bUseScatter"))
-	float SphereRadius = 75.f;
-
-	UPROPERTY(EditAnywhere, Category = "Weapon Scatter")
-	bool bUseScatter = false;
 	
 protected:
-	UPROPERTY(EditAnywhere, Category = "Weapon")
-	float Damage = 15.f;
-
 	UPROPERTY(EditAnywhere, Category = "FX")
 	UParticleSystem* ImpactParticleFX;
 
@@ -41,7 +28,6 @@ protected:
 	USoundCue* HitSoundFX;
 
 protected:
-	FVector TraceEndWithScatter(const FVector& TraceStart, const FVector& HitTarget);
 	void WeaponTraceHit(const FVector& TraceStart, const FVector& HitTarget, FHitResult& OutHit);
 	
 public:

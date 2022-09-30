@@ -9,13 +9,20 @@
 #include "Weapons/WeaponTypes.h"
 #include "BlasterPlayerController.generated.h"
 
+class UReturnToMainMenuWidget;
 class ABlasterHUD;
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FHighPingDelegate, bool, bPingTooHigh);
 
 UCLASS()
 class MULTIPLAYERSHOOTER_API ABlasterPlayerController : public APlayerController
 {
 	GENERATED_BODY()
 
+public:
+	float SingleTripTime = 0.f;
+	FHighPingDelegate HighPingDelegate;
+	
 private:
 	UPROPERTY(Transient)
 	ABlasterHUD* BlasterHUD;
@@ -28,6 +35,14 @@ private:
 
 	UPROPERTY(Transient)
 	ABlasterGameMode* BlasterGameMode;
+
+	UPROPERTY(EditAnywhere)
+	TSubclassOf<UUserWidget> ReturnToMainMenuWidgetClass;
+
+	UPROPERTY()
+	UReturnToMainMenuWidget* ReturnToMainMenuWidget;
+
+	bool bReturnToMainMenuOpen = false;
 	
 	float MatchTime = 0.f;
 	float CountdownInt = 0.f;
@@ -52,6 +67,18 @@ private:
 	float HUDWeaponAmmo;
 	int32 HUDDefeats;
 	int32 HUDGrenades;
+
+	UPROPERTY(EditAnywhere)
+	float HighPingDuration = 5.f;
+	
+	UPROPERTY(EditAnywhere)
+	float CheckPingFrequency = 20.f;
+	
+	UPROPERTY(EditAnywhere)
+	float HighPingThreshold = 50.f;
+	
+	float HighPingRunningTime = 0.f;
+	float PingAnimationRunningTime = 0.f;
 	
 protected:
 	UPROPERTY(EditAnywhere, Category = "Time")
@@ -62,7 +89,7 @@ protected:
 private:
 	UFUNCTION()
 	void OnRep_MatchState();
-	
+
 protected:
 	UFUNCTION(Server, Reliable)
 	void ServerRequestServerTime(float TimeOfClientRequest);
@@ -76,14 +103,26 @@ protected:
 	UFUNCTION(Client, Reliable)
 	void ClientJoinMidgame(FName StateOfMatch, float Warmup, float Match, float Cooldown, float StartingTime);
 
+	UFUNCTION(Server, Reliable)
+	void ServerReportPingStatus(bool bHighPing);
+
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaSeconds) override;
+	virtual void SetupInputComponent() override;
 	
 	void SetHUDTime();
 	void CheckTimeSync(float DeltaTime);
 
 	void PollInit();
 
+	void HighPingWarning();
+	void StopHighPingWarning();
+	void CheckPing(float DeltaTime);
+
+	void ShowReturnToMainMenu();
+
+	void ClientElimAnnouncement(const APlayerState* Attacker, const APlayerState* Victim);
+	
 public:
 	virtual void OnPossess(APawn* InPawn) override;
 	virtual void ReceivedPlayer() override;
@@ -102,6 +141,8 @@ public:
 	void SetHUDMatchCountdown(const float CountdownTime);
 	void SetHUDAnnouncementCountdown(const float CountdownTime);
 	void SetHUDGrenades(const int32 Grenades);
+
+	void BroadcastElim(const APlayerState* Attacker, const APlayerState* Victim);
 	
 	void OnMatchStateSet(FName State);
 };

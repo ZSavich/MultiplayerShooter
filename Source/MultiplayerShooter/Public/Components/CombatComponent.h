@@ -21,6 +21,9 @@ class MULTIPLAYERSHOOTER_API UCombatComponent : public UActorComponent
 {
 	GENERATED_BODY()
 
+public:
+	bool bLocallyReloading = false;
+	
 private:
 	UPROPERTY()
 	ABlasterPlayerController* Controller;
@@ -116,6 +119,12 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void LaunchGrenade();
 	
+	UFUNCTION(BlueprintCallable)
+	void FinishSwap();
+	
+	UFUNCTION(BlueprintCallable)
+	void FinishSwapAttachWeapons();
+	
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
@@ -149,8 +158,8 @@ protected:
 	UPROPERTY()
 	ABlasterCharacter* Character;
 
-	UPROPERTY(Replicated)
-	bool bAiming;
+	UPROPERTY(ReplicatedUsing = OnRep_Aiming)
+	bool bAiming = false;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Movement")
 	float MaxWalkSpeed;
@@ -158,7 +167,8 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Movement")
 	float AimWalkSpeed;
 
-	bool bFireButtonPressed;
+	bool bFireButtonPressed = false;
+	bool bAimButtonPressed = false;
 
 	void EquipWeapon(AWeaponBase* WeaponToEquip);
 
@@ -212,9 +222,12 @@ protected:
 	UFUNCTION()
 	void OnRep_Grenades();
 
+	UFUNCTION()
+	void OnRep_Aiming();
+
 private:
-	UFUNCTION(Server, Reliable)
-	void ServerFire(const FVector_NetQuantize& TraceHitTarget);
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerFire(const FVector_NetQuantize& TraceHitTarget, float FireDelay);
 
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastFire(const FVector_NetQuantize& TraceHitTarget);
@@ -222,11 +235,23 @@ private:
 	UFUNCTION(Server, Reliable)
 	void ServerLaunchGrenade(const FVector_NetQuantize& Target);
 
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerShotgunFire(const TArray<FVector_NetQuantize>& TraceHitTargets, float FireDelay);
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastShotgunFire(const TArray<FVector_NetQuantize>& TraceHitTargets);
+
 	void InterpFOV(float DeltaTime);
 
 	void StartFireTimer();
 	void FireTimerFinished();
 	void Fire();
+	void LocalFire(const FVector_NetQuantize& TraceHitTarget);
+	void ShotgunLocalFire(const TArray<FVector_NetQuantize>& TraceHitTargets);
+
+	void FireProjectileWeapon();
+	void FireHitScanWeapon();
+	void FireShotgun();
 
 	void UpdateAmmoValues();
 

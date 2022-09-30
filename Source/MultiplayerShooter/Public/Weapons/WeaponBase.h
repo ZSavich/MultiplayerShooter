@@ -13,7 +13,7 @@ class UWidgetComponent;
 class ABlasterCharacter;
 class ABlasterPlayerController;
 
-UENUM()
+UENUM(BlueprintType)
 enum class EWeaponState : uint8
 {
 	EWS_Initial				UMETA(DisplayName = "Initial State"),
@@ -22,6 +22,16 @@ enum class EWeaponState : uint8
 	EWS_Dropped				UMETA(DisplayName = "Dropped State"),
 
 	EWS_MAX					UMETA(Hidden)
+};
+
+UENUM(BlueprintType)
+enum class EFireType : uint8
+{
+	EFT_HitScan		UMETA(DisplayName = "HitScan Weapon"),
+	EFT_Projectile	UMETA(DisplayName = "Projectile Weapon"),
+	EFT_Shotgun		UMETA(DisplayName = "Shotgun Weapon"),
+
+	EFT_MAX			UMETA(Hidden)
 };
 
 UCLASS()
@@ -36,23 +46,18 @@ private:
 	UPROPERTY(EditAnywhere, Category = "FOV")
 	float ZoomInterpSpeed = 30.f;
 
-	UPROPERTY(EditAnywhere, ReplicatedUsing = OnRep_Ammo, Category = "Ammo")
+	UPROPERTY(EditAnywhere, Category = "Ammo")
 	int32 Ammo = 30.f;
 
 	UPROPERTY(EditAnywhere, Category = "Ammo")
 	int32 MagCapacity = 30.f;
 
-	UPROPERTY(EditAnywhere, Category = "Weapom")
+	UPROPERTY(EditAnywhere, Category = "Weapon")
 	EWeaponType WeaponType;
 
-	UPROPERTY()
-	ABlasterCharacter* BlasterOwnerCharacter;
-
-	UPROPERTY()
-	ABlasterPlayerController* BlasterOwnerController; 
+	UPROPERTY(EditAnywhere, Category = "Weapon")
+	EFireType FireType;
 	
-	UFUNCTION()
-	void OnRep_Ammo();
 	void SpendRound();
 	
 public:	
@@ -83,6 +88,15 @@ public:
 	USoundCue* EquipSoundFX;
 
 	bool bDestroyWeapon = false;
+
+	UPROPERTY(EditAnywhere, Category = "Weapon Scatter", meta = (EditCondition="bUseScatter"))
+	float DistanceToSphere = 800.f;
+
+	UPROPERTY(EditAnywhere, Category = "Weapon Scatter", meta = (EditCondition="bUseScatter"))
+	float SphereRadius = 75.f;
+
+	UPROPERTY(EditAnywhere, Category = "Weapon Scatter")
+	bool bUseScatter = false;
 	
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
@@ -103,6 +117,23 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Weapon")
 	TSubclassOf<ACasingBase> CasingClass;
 	
+	UPROPERTY(EditAnywhere, Category = "Weapon")
+	float Damage = 15.f;
+
+	UPROPERTY(EditAnywhere, Category = "Weapon")
+	float HeadShotDamage = 40.f;
+
+	UPROPERTY(EditAnywhere, Replicated, Category = "Lag Compensation")
+	bool bUseServerSideRewind = false;
+
+	UPROPERTY()
+	ABlasterCharacter* BlasterOwnerCharacter;
+
+	UPROPERTY()
+	ABlasterPlayerController* BlasterOwnerController; 
+
+	float Sequence = 0;
+	
 	virtual void BeginPlay() override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	
@@ -110,6 +141,8 @@ protected:
 	virtual void OnEquipped();
 	virtual void OnDropped();
 	virtual void OnEquippedSecondary();
+
+	void OnPingTooHigh(bool bPingTooHigh);
 	
 	UFUNCTION()
 	void OnSphereOverlapped(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult & SweepResult);
@@ -119,6 +152,12 @@ protected:
 
 	UFUNCTION()
 	void OnRep_WeaponState();
+
+	UFUNCTION(Client, Reliable)
+	void ClientUpdateAmmo(float ServerAmmo);
+
+	UFUNCTION(Client, Reliable)
+	void ClientAddAmmo(float AmmoToAdd);
 
 public:
 	virtual void OnRep_Owner() override;
@@ -132,11 +171,16 @@ public:
 	void ShowPickupWidget(bool IsVisible) const;
 	void EnableCustomDepth(const bool bEnable);
 
+	FVector TraceEndWithScatter(const FVector& HitTarget);
+
 	FORCEINLINE void SetWeaponState(EWeaponState InWeaponState);
 	FORCEINLINE USkeletalMeshComponent* GetWeaponMesh() const { return WeaponMeshComponent; }
 	FORCEINLINE float GetZoomedFOV() const { return ZoomedFOV; }
 	FORCEINLINE float GetZoomInterpSpeed() const { return ZoomInterpSpeed; }
 	FORCEINLINE const EWeaponType&  GetWeaponType() const { return WeaponType; }
+	FORCEINLINE const EFireType& GetFireType() const { return FireType; }
 	FORCEINLINE int32 GetMagCapacity() const { return MagCapacity; }
 	FORCEINLINE int32 GetAmmo() const { return Ammo; }
+	FORCEINLINE float GetDamage() const { return Damage; }
+	FORCEINLINE float GetHeadShotDamage() const { return HeadShotDamage; }
 };

@@ -10,6 +10,7 @@
 #include "Net/UnrealNetwork.h"
 #include "Character/BlasterCharacter.h"
 #include "Character/BlasterPlayerController.h"
+#include "Kismet/KismetMathLibrary.h"
 
 AWeaponBase::AWeaponBase()
 {
@@ -39,13 +40,10 @@ void AWeaponBase::BeginPlay()
 {
 	Super::BeginPlay();
 
-	if (HasAuthority())
-	{
-		AreaSphere->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
-		AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-		AreaSphere->OnComponentBeginOverlap.AddDynamic(this, &AWeaponBase::OnSphereOverlapped);
-		AreaSphere->OnComponentEndOverlap.AddDynamic(this, &AWeaponBase::OnSphereEndOverlap);
-	}
+	AreaSphere->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+	AreaSphere->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	AreaSphere->OnComponentBeginOverlap.AddDynamic(this, &AWeaponBase::OnSphereOverlapped);
+	AreaSphere->OnComponentEndOverlap.AddDynamic(this, &AWeaponBase::OnSphereEndOverlap);
 	
 	if (PickupWidget)
 	{
@@ -58,7 +56,7 @@ void AWeaponBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifet
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AWeaponBase, WeaponState);
-	DOREPLIFETIME(AWeaponBase, Ammo);
+	DOREPLIFETIME_CONDITION(AWeaponBase, bUseServerSideRewind, COND_OwnerOnly);
 }
 
 bool AWeaponBase::IsEmpty()
@@ -116,6 +114,15 @@ void AWeaponBase::OnRep_WeaponState()
 	OnWeaponStateSet();
 }
 
+void AWeaponBase::ClientUpdateAmmo_Implementation(float ServerAmmo)
+{
+	if (HasAuthority()) return;
+	Ammo = ServerAmmo;
+	--Sequence;
+	Ammo -= Sequence;
+	SetHUDAmmo();
+}
+
 void AWeaponBase::OnWeaponStateSet()
 {
 	switch (WeaponState)
@@ -147,6 +154,16 @@ void AWeaponBase::OnEquipped()
 		WeaponMeshComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
 	}
 	EnableCustomDepth(false);
+
+	BlasterOwnerCharacter = BlasterOwnerCharacter == nullptr ? GetOwner<ABlasterCharacter>() : BlasterOwnerCharacter;
+	if (BlasterOwnerCharacter && bUseServerSideRewind)
+	{
+		BlasterOwnerController = BlasterOwnerController == nullptr ? Cast<ABlasterPlayerController>(BlasterOwnerCharacter->Controller) : BlasterOwnerController;
+		if (BlasterOwnerController && !BlasterOwnerController->HighPingDelegate.IsBound())
+		{
+			BlasterOwnerController->HighPingDelegate.AddDynamic(this, &AWeaponBase::OnPingTooHigh);
+		}
+	}
 }
 
 void AWeaponBase::OnDropped()
@@ -165,6 +182,16 @@ void AWeaponBase::OnDropped()
 	WeaponMeshComponent->SetCustomDepthStencilValue(CUSTOM_DEPTH_PURPLE);
 	WeaponMeshComponent->MarkRenderStateDirty();
 	EnableCustomDepth(true);
+	
+	BlasterOwnerCharacter = BlasterOwnerCharacter == nullptr ? GetOwner<ABlasterCharacter>() : BlasterOwnerCharacter;
+	if (BlasterOwnerCharacter && bUseServerSideRewind)
+	{
+		BlasterOwnerController = BlasterOwnerController == nullptr ? Cast<ABlasterPlayerController>(BlasterOwnerCharacter->Controller) : BlasterOwnerController;
+		if (BlasterOwnerController && BlasterOwnerController->HighPingDelegate.IsBound())
+		{
+			BlasterOwnerController->HighPingDelegate.RemoveDynamic(this, &AWeaponBase::OnPingTooHigh);
+		}
+	}
 }
 
 void AWeaponBase::OnEquippedSecondary()
@@ -181,9 +208,35 @@ void AWeaponBase::OnEquippedSecondary()
 		WeaponMeshComponent->SetEnableGravity(true);
 		WeaponMeshComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
 	}
-	EnableCustomDepth(true);
 	WeaponMeshComponent->SetCustomDepthStencilValue(CUSTOM_DEPTH_TAN);
 	WeaponMeshComponent->MarkRenderStateDirty();
+
+	BlasterOwnerCharacter = BlasterOwnerCharacter == nullptr ? GetOwner<ABlasterCharacter>() : BlasterOwnerCharacter;
+	if (BlasterOwnerCharacter && bUseServerSideRewind)
+	{
+		BlasterOwnerController = BlasterOwnerController == nullptr ? Cast<ABlasterPlayerController>(BlasterOwnerCharacter->Controller) : BlasterOwnerController;
+		if (BlasterOwnerController && BlasterOwnerController->HighPingDelegate.IsBound())
+		{
+			BlasterOwnerController->HighPingDelegate.RemoveDynamic(this, &AWeaponBase::OnPingTooHigh);
+		}
+	}
+}
+
+void AWeaponBase::OnPingTooHigh(bool bPingTooHigh)
+{
+	bUseServerSideRewind = !bPingTooHigh;
+}
+
+void AWeaponBase::ClientAddAmmo_Implementation(float AmmoToAdd)
+{
+	if (HasAuthority()) return;
+	Ammo = FMath::Clamp(Ammo + AmmoToAdd, 0.f, MagCapacity);
+	BlasterOwnerCharacter = BlasterOwnerCharacter == nullptr ? GetOwner<ABlasterCharacter>() : BlasterOwnerCharacter;
+	if (BlasterOwnerCharacter && BlasterOwnerCharacter->GetCombatComponent() && IsFull())
+	{
+		BlasterOwnerCharacter->GetCombatComponent()->JumpToShotgunEnd();
+	}
+	SetHUDAmmo();
 }
 
 void AWeaponBase::OnRep_Owner()
@@ -255,22 +308,46 @@ void AWeaponBase::Dropped()
 
 void AWeaponBase::AddAmmo(const int32 AmmoToAdd)
 {
-	Ammo = FMath::Clamp(Ammo - AmmoToAdd, 0.f, MagCapacity);
+	Ammo = FMath::Clamp(Ammo + AmmoToAdd, 0.f, MagCapacity);
 	SetHUDAmmo();
+	ClientAddAmmo(AmmoToAdd);
 }
 
 void AWeaponBase::SpendRound()
 {
 	Ammo = FMath::Clamp(Ammo - 1, 0, MagCapacity);
 	SetHUDAmmo();
+	if (HasAuthority())
+	{
+		ClientUpdateAmmo(Ammo);
+	}
+	else
+	{
+		++Sequence;
+	}
 }
 
-void AWeaponBase::OnRep_Ammo()
+FVector AWeaponBase::TraceEndWithScatter(const FVector& HitTarget)
 {
-	BlasterOwnerCharacter = BlasterOwnerCharacter == nullptr ? Cast<ABlasterCharacter>(GetOwner()) : BlasterOwnerCharacter;
-	if (BlasterOwnerCharacter && BlasterOwnerCharacter->GetCombatComponent() && IsFull())
-	{
-		BlasterOwnerCharacter->GetCombatComponent()->JumpToShotgunEnd();
-	}
-	SetHUDAmmo();
+	const USkeletalMeshSocket* MuzzleFlashSocket = GetWeaponMesh()->GetSocketByName(TEXT("MuzzleFlash"));
+	if (!MuzzleFlashSocket) return FVector();
+	
+	const FTransform SocketTransform = MuzzleFlashSocket->GetSocketTransform(GetWeaponMesh());
+	const FVector TraceStart = SocketTransform.GetLocation();
+	const FVector ToTargetNormalized = (HitTarget - TraceStart).GetSafeNormal();
+	const FVector SphereCenter = TraceStart + ToTargetNormalized * DistanceToSphere;
+
+	const FVector RandVector = UKismetMathLibrary::RandomUnitVector() * FMath::FRandRange(0.f, SphereRadius);
+	const FVector EndLoc = SphereCenter + RandVector;
+	const FVector ToEndLoc = EndLoc - TraceStart;
+	const FVector EndResult = FVector(TraceStart + ToEndLoc * TRACE_LENGTH / ToEndLoc.Size());
+
+	/* 
+	* Debug Scatter 
+	DrawDebugSphere(GetWorld(), SphereCenter, SphereRadius, 12.f, FColor::Red, true);
+	DrawDebugSphere(GetWorld(), EndLoc, 4.f, 12.f, FColor::Orange, true);
+	DrawDebugLine(GetWorld(), TraceStart, EndResult, FColor::Cyan, true);
+	*/
+	
+	return EndResult;
 }

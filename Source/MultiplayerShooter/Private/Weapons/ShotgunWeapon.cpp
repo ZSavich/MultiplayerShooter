@@ -6,10 +6,13 @@
 #include "Particles/ParticleSystemComponent.h"
 #include "Sound/SoundCue.h"
 #include "Character/BlasterCharacter.h"
+#include "Character/BlasterPlayerController.h"
+#include "Components/LagCompensationComponent.h"
+#include "Kismet/KismetMathLibrary.h"
 
-void AShotgunWeapon::Fire(const FVector& HitTarget)
+void AShotgunWeapon::FireShotgun(const TArray<FVector_NetQuantize>& HitTargets)
 {
-	AWeaponBase::Fire(HitTarget);
+	AWeaponBase::Fire(FVector());
 
 	APawn* OwnerPawn = GetOwner<APawn>();
 	if (OwnerPawn == nullptr)
@@ -25,22 +28,40 @@ void AShotgunWeapon::Fire(const FVector& HitTarget)
 		const FVector Start = SocketTransform.GetLocation();
 		
 		TMap<ABlasterCharacter*, uint32> HitMap;
-		for (uint8 i = 0; i < NumberOfPellets; ++i)
+		TMap<ABlasterCharacter*, uint32> HeadShotHitMap;
+		
+		for (auto& HitTarget : HitTargets)
 		{
 			FHitResult FireHit;
 			WeaponTraceHit(Start, HitTarget, FireHit);
 			
 			ABlasterCharacter* BlasterCharacter = Cast<ABlasterCharacter>(FireHit.GetActor());
-			if (BlasterCharacter && HasAuthority() && InstigatorController)
+			if (BlasterCharacter)
 			{
-				if (HitMap.Contains(BlasterCharacter))
+				bool bHeadShot = FireHit.BoneName.ToString() == FString("head");
+				if (bHeadShot)
 				{
-					HitMap[BlasterCharacter]++;
+					if (HeadShotHitMap.Contains(BlasterCharacter))
+					{
+						HeadShotHitMap[BlasterCharacter]++;
+					}
+					else
+					{
+						HeadShotHitMap.Emplace(BlasterCharacter, 1);
+					}
 				}
 				else
 				{
-					HitMap.Emplace(BlasterCharacter, 1);
+					if (HitMap.Contains(BlasterCharacter))
+					{
+						HitMap[BlasterCharacter]++;
+					}
+					else
+					{
+						HitMap.Emplace(BlasterCharacter, 1);
+					}
 				}
+				
 			}
 			if (ImpactParticleFX)
 			{
@@ -62,18 +83,80 @@ void AShotgunWeapon::Fire(const FVector& HitTarget)
 				);
 			}
 		}
+		TArray<ABlasterCharacter*> HitCharacters;
+		TMap<ABlasterCharacter*, float> DamageMap;
 		for (const auto& HitPair : HitMap)
 		{
-			if (HitPair.Key && HasAuthority() && InstigatorController)
+			if (HitPair.Key && HasAuthority())
 			{
-				UGameplayStatics::ApplyDamage(
-					HitPair.Key,
-					Damage * HitPair.Value,
-					InstigatorController,
-					this,
-					UDamageType::StaticClass()
-				);
+				DamageMap.Emplace(HitPair.Key, HitPair.Value * Damage);
+				HitCharacters.AddUnique(HitPair.Key);
 			}
 		}
+
+		for (const auto& HitPair : HeadShotHitMap)
+		{
+			if (HitPair.Key && HasAuthority())
+			{
+				if (DamageMap.Contains(HitPair.Key))
+				{
+					DamageMap[HitPair.Key] += HitPair.Value * HeadShotDamage;
+				}
+				else
+				{
+					DamageMap.Emplace(HitPair.Key, HitPair.Value * HeadShotDamage);
+				}
+				
+				HitCharacters.AddUnique(HitPair.Key);
+			}
+		}
+
+		for (auto& DamagePair : DamageMap)
+		{
+			if (DamagePair.Key && InstigatorController)
+			{
+				bool bCauseAuthDamage = !bUseServerSideRewind || OwnerPawn->IsLocallyControlled();
+				if (HasAuthority() && bCauseAuthDamage)
+				{
+					UGameplayStatics::ApplyDamage(
+						DamagePair.Key,
+						DamagePair.Value,
+						InstigatorController,
+						this,
+						UDamageType::StaticClass()
+					);
+				}
+			}
+		}
+		
+		if (!HasAuthority() && bUseServerSideRewind)
+		{
+			BlasterOwnerCharacter = BlasterOwnerCharacter == nullptr ? Cast<ABlasterCharacter>(OwnerPawn) : BlasterOwnerCharacter;
+			BlasterOwnerController = BlasterOwnerController == nullptr ? Cast<ABlasterPlayerController>(InstigatorController) : BlasterOwnerController;
+			if (BlasterOwnerCharacter && BlasterOwnerController && BlasterOwnerCharacter->GetLagCompensationComponent() && BlasterOwnerCharacter->IsLocallyControlled())
+			{
+				BlasterOwnerCharacter->GetLagCompensationComponent()->ShotgunServerScoreRequest(HitCharacters, Start, HitTargets, BlasterOwnerController->GetServerTime() - BlasterOwnerController->SingleTripTime);
+			}
+		}
+	}
+}
+
+void AShotgunWeapon::ShotgunTraceEndWithScatter(const FVector_NetQuantize& HitTarget, TArray<FVector_NetQuantize>& HitTargets)
+{
+	const USkeletalMeshSocket* MuzzleFlashSocket = GetWeaponMesh()->GetSocketByName(TEXT("MuzzleFlash"));
+	if (!MuzzleFlashSocket) return;
+	
+	const FTransform SocketTransform = MuzzleFlashSocket->GetSocketTransform(GetWeaponMesh());
+	const FVector TraceStart = SocketTransform.GetLocation();
+	const FVector ToTargetNormalized = (HitTarget - TraceStart).GetSafeNormal();
+	const FVector SphereCenter = TraceStart + ToTargetNormalized * DistanceToSphere;
+
+	for (uint8 i = 0; i < NumberOfPellets; ++i)
+	{
+		const FVector RandVector = UKismetMathLibrary::RandomUnitVector() * FMath::FRandRange(0.f, SphereRadius);
+		const FVector EndLoc = SphereCenter + RandVector;
+		const FVector ToEndLoc = EndLoc - TraceStart;
+		const FVector EndResult = FVector(TraceStart + ToEndLoc * TRACE_LENGTH / ToEndLoc.Size());
+		HitTargets.Add(EndResult);
 	}
 }

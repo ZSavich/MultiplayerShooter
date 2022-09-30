@@ -3,11 +3,13 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "AnnouncementWidget.h"
 #include "GameFramework/HUD.h"
 #include "BlasterHUD.generated.h"
 
 class UCharacterOverlayWidget;
+class UAnnouncementWidget;
+class UElimAnnouncementWidget;
+class ABlasterPlayerController;
 
 USTRUCT()
 struct FHUDPackage
@@ -39,7 +41,17 @@ class MULTIPLAYERSHOOTER_API ABlasterHUD : public AHUD
 	GENERATED_BODY()
 	
 private:
+	UPROPERTY(EditAnywhere)
+	TSubclassOf<UElimAnnouncementWidget> ElimAnnouncementWidgetClass;
+
+	UPROPERTY(EditAnywhere)
+	float ElimAnnouncementTime = 2.5;
+
+	UPROPERTY()
+	ABlasterPlayerController* OwningPlayer;
+	
 	FHUDPackage HUDPackage;
+	
 	float CrosshairSpreadMax = 16.f;
 
 public:
@@ -58,14 +70,21 @@ public:
 private:
 	void DrawCrosshair(UTexture2D* Texture, FVector2D ViewportCenter, FVector2D Spread, FLinearColor Color);
 
+	UFUNCTION()
+	void ElimAnnouncementTimerExpired(UElimAnnouncementWidget* MsgToElim);
+
 protected:
 	virtual void BeginPlay() override;
+
+	UPROPERTY()
+	TArray<UElimAnnouncementWidget*> ElimMessages;
 	
 public:
 	virtual void DrawHUD() override;
 	
 	void AddCharacterOverlay();
 	void AddAnnouncementWidget();
+	void AddElimAnnouncement(const FString& AttackerName, const FString& VictimName);
 
 	FORCEINLINE void SetHUDPackage(const FHUDPackage& Package) { HUDPackage = Package; }
 

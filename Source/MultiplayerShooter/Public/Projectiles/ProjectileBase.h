@@ -29,9 +29,6 @@ protected:
 	
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	UProjectileMovementComponent* ProjectileMovementComponent;
-	
-	UPROPERTY(EditDefaultsOnly, Category = "Projectile Stats")
-	float Damage = 20.f;
 
 	UPROPERTY(EditAnywhere, Category = "FX")
 	UNiagaraSystem* TrailSystem;
@@ -59,6 +56,19 @@ protected:
 public:
 	UPROPERTY(EditAnywhere)
 	UBoxComponent* CollisionBox;
+
+	UPROPERTY(EditAnywhere)
+	float InitialSpeed = 15000.f;
+	
+	UPROPERTY(EditDefaultsOnly, Category = "Projectile Stats")
+	float Damage = 20.f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Projectile Stats")
+	float HeadShotDamage = 40.f;
+
+	bool bUseServerSideRewind = false;
+	FVector_NetQuantize TraceStart;
+	FVector_NetQuantize100 InitialVelocity;
 	
 public:	
 	AProjectileBase();

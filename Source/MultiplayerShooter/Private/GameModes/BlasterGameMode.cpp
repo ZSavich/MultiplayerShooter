@@ -53,6 +53,26 @@ void ABlasterGameMode::Tick(float DeltaSeconds)
 	}
 }
 
+void ABlasterGameMode::OnPlayerLeftGame(ABlasterPlayerState* PlayerLeaving)
+{
+	if (PlayerLeaving == nullptr)
+	{
+		return;
+	}
+
+	ABlasterGameState* BlasterGameState = GetGameState<ABlasterGameState>();
+	if (BlasterGameState && BlasterGameState->TopScoringPlayers.Contains(PlayerLeaving))
+	{
+		BlasterGameState->TopScoringPlayers.Remove(PlayerLeaving);
+	}
+
+	if (ABlasterCharacter* BlasterCharacterLeaving = PlayerLeaving->GetPawn<ABlasterCharacter>())
+	{
+		BlasterCharacterLeaving->Eliminate(true);
+	}
+	
+}
+
 void ABlasterGameMode::OnMatchStateSet()
 {
 	Super::OnMatchStateSet();
@@ -74,10 +94,36 @@ void ABlasterGameMode::PlayerEliminated(ABlasterCharacter* EliminatedCharacter,
 
 	if (AttackerPlayerState && VictimPlayerState && AttackerPlayerState != VictimPlayerState)
 	{
-		AttackerPlayerState->AddToScore(1.f);
 		if (ABlasterGameState* BlasterGameState = GetGameState<ABlasterGameState>())
 		{
+			TArray<ABlasterPlayerState*> PlayersCurrentlyInTheLead;
+
+			for (auto& LeadPlayer : BlasterGameState->TopScoringPlayers)
+			{
+				PlayersCurrentlyInTheLead.Add(LeadPlayer);
+			}
+		
+			AttackerPlayerState->AddToScore(1.f);
 			BlasterGameState->UpdateTopScore(AttackerPlayerState);
+
+			if (BlasterGameState->TopScoringPlayers.Contains(AttackerPlayerState))
+			{
+				if (ABlasterCharacter* Leader = Cast<ABlasterCharacter>(AttackerPlayerState->GetPawn()))
+				{
+					Leader->MulticastGainedTheLead();
+				}
+			}
+			
+			for (uint8 i = 0; i < PlayersCurrentlyInTheLead.Num(); --i)
+			{
+				if (!BlasterGameState->TopScoringPlayers.Contains(PlayersCurrentlyInTheLead[i]))
+				{
+					if (ABlasterCharacter* Loser = Cast<ABlasterCharacter>(PlayersCurrentlyInTheLead[i]->GetPawn()))
+					{
+						Loser->MulticastLostTheLead();
+					}
+				}
+			}
 		}
 	}
 	if (VictimPlayerState)
@@ -86,7 +132,16 @@ void ABlasterGameMode::PlayerEliminated(ABlasterCharacter* EliminatedCharacter,
 	}
 	if (EliminatedCharacter)
 	{
-		EliminatedCharacter->Eliminate();
+		EliminatedCharacter->Eliminate(false);
+	}
+
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		ABlasterPlayerController* BlasterPlayer = Cast<ABlasterPlayerController>(*It);
+		if (BlasterPlayer && AttackerPlayerState && VictimPlayerState)
+		{
+			BlasterPlayer->BroadcastElim(AttackerPlayerState, VictimPlayerState);
+		}
 	}
 }
 

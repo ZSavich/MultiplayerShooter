@@ -8,11 +8,6 @@
 void AProjectileWeapon::Fire(const FVector& HitTarget)
 {
 	Super::Fire(HitTarget);
-
-	if (!HasAuthority())
-	{
-		return;
-	}
 	
 	APawn* InstigatorPawn = Cast<APawn>(GetOwner());
 	const USkeletalMeshSocket* MuzzleFlashSocket = GetWeaponMesh()->GetSocketByName(TEXT("MuzzleFlash"));
@@ -21,16 +16,76 @@ void AProjectileWeapon::Fire(const FVector& HitTarget)
 		const FTransform SocketTransform = MuzzleFlashSocket->GetSocketTransform(GetWeaponMesh());
 		const FVector ToTarget = HitTarget - SocketTransform.GetLocation();
 		const FRotator TargetRotation = ToTarget.Rotation();
+		UWorld* World = GetWorld();
 
 		FActorSpawnParameters SpawnParams;
 		SpawnParams.Owner = GetOwner();
 		SpawnParams.Instigator = InstigatorPawn;
-		
-		if (ProjectileClass)
+
+		AProjectileBase* SpawnerProjectile = nullptr;
+
+		if (World)
 		{
-			if (UWorld* World = GetWorld())
+			if (bUseServerSideRewind)
 			{
-				World->SpawnActor<AProjectileBase>(ProjectileClass, SocketTransform.GetLocation(), TargetRotation, SpawnParams);
+				if (InstigatorPawn->HasAuthority())
+				{
+					if (InstigatorPawn->IsLocallyControlled())
+					{
+						if (ProjectileClass)
+						{
+							SpawnerProjectile = World->SpawnActor<AProjectileBase>(ProjectileClass, SocketTransform.GetLocation(), TargetRotation, SpawnParams);
+						}
+						SpawnerProjectile->bUseServerSideRewind = false;
+						SpawnerProjectile->Damage = Damage;
+						SpawnerProjectile->HeadShotDamage = HeadShotDamage;
+					}
+					else
+					{
+						if (ProjectileClass)
+						{
+							SpawnerProjectile = World->SpawnActor<AProjectileBase>(ServerSideRewindProjectileClass, SocketTransform.GetLocation(), TargetRotation, SpawnParams);
+							if (SpawnerProjectile)
+							{
+								SpawnerProjectile->bUseServerSideRewind = true;
+							}
+						}
+					}
+				}
+				else
+				{
+					if (InstigatorPawn->IsLocallyControlled())
+					{
+						if (ProjectileClass)
+						{
+							SpawnerProjectile = World->SpawnActor<AProjectileBase>(ProjectileClass, SocketTransform.GetLocation(), TargetRotation, SpawnParams);
+						}
+						SpawnerProjectile->bUseServerSideRewind = true;
+						SpawnerProjectile->TraceStart = SocketTransform.GetLocation();
+						SpawnerProjectile->InitialVelocity = SpawnerProjectile->GetActorForwardVector() * SpawnerProjectile->InitialSpeed;
+					}
+					else
+					{
+						if (ProjectileClass)
+						{
+							SpawnerProjectile = World->SpawnActor<AProjectileBase>(ServerSideRewindProjectileClass, SocketTransform.GetLocation(), TargetRotation, SpawnParams);
+						}
+						SpawnerProjectile->bUseServerSideRewind = false;
+					}
+				}
+			}
+			else
+			{
+				if (InstigatorPawn->HasAuthority())
+				{
+					if (ProjectileClass)
+					{
+						SpawnerProjectile = World->SpawnActor<AProjectileBase>(ProjectileClass, SocketTransform.GetLocation(), TargetRotation, SpawnParams);
+					}
+					SpawnerProjectile->bUseServerSideRewind = false;
+					SpawnerProjectile->Damage = Damage;
+					SpawnerProjectile->HeadShotDamage = HeadShotDamage;
+				}
 			}
 		}
 	}

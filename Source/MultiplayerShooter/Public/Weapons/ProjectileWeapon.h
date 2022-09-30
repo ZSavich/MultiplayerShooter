@@ -16,6 +16,9 @@ class MULTIPLAYERSHOOTER_API AProjectileWeapon : public AWeaponBase
 	UPROPERTY(EditAnywhere)
 	TSubclassOf<AProjectileBase> ProjectileClass;
 
+	UPROPERTY(EditAnywhere)
+	TSubclassOf<AProjectileBase> ServerSideRewindProjectileClass;
+
 public:
 	virtual void Fire(const FVector& HitTarget) override;
 };

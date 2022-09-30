@@ -16,5 +16,6 @@ private:
 	float NumberOfPellets = 12.f;
 	
 public:
-	virtual void Fire(const FVector& HitTarget) override;
+	void FireShotgun(const TArray<FVector_NetQuantize>& HitTargets);
+	void ShotgunTraceEndWithScatter(const FVector_NetQuantize& HitTarget, TArray<FVector_NetQuantize>& HitTargets);
 };
