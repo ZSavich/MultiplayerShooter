@@ -40,8 +40,12 @@ protected:
 	void HandleOnDestroySession(bool bWasSuccessful);
 
 private:
+	UPROPERTY(BlueprintReadWrite, meta = (AllowPrivateAccess = true))
 	int32 NumPublicConnections{4};
+
+	UPROPERTY(BlueprintReadWrite, meta = (AllowPrivateAccess = true))
 	FString MatchType{"FreeForAll"};
+	
 	FString PathToLobby{TEXT("")};
 
 	UPROPERTY(meta = (BindWidget))

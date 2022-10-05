@@ -24,6 +24,9 @@ public:
 	FMultiplayerOnJoinSessionComplete MultiplayerOnJoinSessionComplete;
 	FMultiplayerOnStartSessionComplete MultiplayerOnStartSessionComplete;
 	FMultiplayerOnDestroySessionComplete MultiplayerOnDestroySessionComplete;
+
+	int32 DesiredNumPublicConnections;
+	FString DesiredMatchType;
 	
 	UMultiplayerSessionSubsystem();
 

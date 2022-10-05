@@ -35,6 +35,8 @@ public:
 	
 	float LevelStartingTime = 0.f;
 
+	bool bTeamsMatch = false;
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void OnMatchStateSet() override;
@@ -44,6 +46,7 @@ public:
 	virtual void PlayerEliminated(ABlasterCharacter* EliminatedCharacter, ABlasterPlayerController* VictimController, ABlasterPlayerController* AttackerController);
 	virtual void RequestRespawn(AActor* EliminatedCharacter, AController* EliminatedController);
 	virtual void Tick(float DeltaSeconds) override;
+	virtual float CalculateDamage(const AController* VictimController, const AController* AttackerController, float BaseDamage);
 
 	void OnPlayerLeftGame(ABlasterPlayerState* PlayerLeaving);
 

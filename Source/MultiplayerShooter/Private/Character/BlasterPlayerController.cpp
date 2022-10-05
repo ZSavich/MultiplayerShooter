@@ -1,6 +1,8 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "Character/BlasterPlayerController.h"
+
+#include "BlasterTypes/Announcement.h"
 #include "Character/BlasterCharacter.h"
 #include "GameFramework/GameMode.h"
 #include "GameModes/BlasterGameMode.h"
@@ -17,6 +19,7 @@ void ABlasterPlayerController::GetLifetimeReplicatedProps(TArray< FLifetimePrope
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(ABlasterPlayerController, MatchState);
+	DOREPLIFETIME(ABlasterPlayerController, bShowTeamScores);
 }
 
 void ABlasterPlayerController::ClientJoinMidgame_Implementation(FName StateOfMatch, float Warmup, float Match, float Cooldown,
@@ -38,6 +41,18 @@ void ABlasterPlayerController::ClientJoinMidgame_Implementation(FName StateOfMat
 void ABlasterPlayerController::ServerReportPingStatus_Implementation(bool bHighPing)
 {
 	HighPingDelegate.Broadcast(bHighPing);
+}
+
+void ABlasterPlayerController::OnRep_ShowTeamScores()
+{
+	if (bShowTeamScores)
+	{
+		InitTeamScores();
+	}
+	else
+	{
+		HideTeamScores();
+	}
 }
 
 void ABlasterPlayerController::BeginPlay()
@@ -106,8 +121,12 @@ void ABlasterPlayerController::PollInit()
 	}
 }
 
-void ABlasterPlayerController::HandleMatchHasStarted()
+void ABlasterPlayerController::HandleMatchHasStarted(bool bTeamsMatch)
 {
+	if (HasAuthority())
+	{
+		bShowTeamScores = bTeamsMatch;
+	}
 	BlasterHUD = BlasterHUD == nullptr ? GetHUD<ABlasterHUD>() : BlasterHUD;
 	if (BlasterHUD)
 	{
@@ -119,7 +138,87 @@ void ABlasterPlayerController::HandleMatchHasStarted()
 		{
 			BlasterHUD->AnnouncementWidget->SetVisibility(ESlateVisibility::Hidden);
 		}
+		if (!HasAuthority())
+		{
+			return;
+		}
+		if (bTeamsMatch)
+		{
+			InitTeamScores();
+		}
+		else
+		{
+			HideTeamScores();
+		}
 	}
+}
+
+FString ABlasterPlayerController::GetInfoText(const TArray<ABlasterPlayerState*>& Players)
+{
+	ABlasterPlayerState* BlasterPlayerState = GetPlayerState<ABlasterPlayerState>();
+	if (BlasterPlayerState == nullptr)
+	{
+		return FString();
+	}
+	FString InfoText;
+	if (ABlasterGameState* BlasterGameState = Cast<ABlasterGameState>(UGameplayStatics::GetGameState(this)))
+	{
+		if (Players.Num() == 0)
+		{
+			InfoText = Announcement::ThereIsNoWinner;
+		}
+		else if (Players.Num() == 1 && Players[0] == BlasterPlayerState)
+		{
+			InfoText = Announcement::YouAreTheWinner;
+		}
+		else if (Players.Num() == 1)
+		{
+			InfoText = FString::Printf(TEXT("Winner: \n%s"), *Players[0]->GetPlayerName());
+		}
+		else if (Players.Num() > 1)
+		{
+			InfoText = Announcement::PlayersTiedForTheWin;
+			InfoText.Append(TEXT("\n"));
+			for (const auto& TopPlayer : Players)
+			{
+				InfoText.Append(FString::Printf(TEXT("%s\n"), *TopPlayer->GetPlayerName()));
+			}
+		}
+	}
+	return InfoText;
+}
+
+FString ABlasterPlayerController::GetTeamsInfoText(ABlasterGameState* BlasterGameState)
+{
+	if (BlasterGameState == nullptr)
+	{
+		return FString();
+	}
+
+	FString InfoText;
+
+	const int32 RedTeamScore = BlasterGameState->RedTeamScore;
+	const int32 BlueTeamScore = BlasterGameState->BlueTeamScore;
+	if (RedTeamScore == 0 && BlueTeamScore == 0)
+	{
+		InfoText = Announcement::ThereIsNoWinner;
+	}
+	else if (RedTeamScore == BlueTeamScore)
+	{
+		InfoText = FString::Printf(TEXT("%s\n"), *Announcement::TeamsTiedForTheWin);
+		InfoText.Append(FString::Printf(TEXT("%s\n%s\n"), *Announcement::RedTeam, *Announcement::BlueTeam));
+	}
+	else if (RedTeamScore > BlueTeamScore)
+	{
+		InfoText = Announcement::RedTeamWins;
+		InfoText.Append(FString::Printf(TEXT("\n%s: %d\n%s: %d\n"), *Announcement::RedTeam, RedTeamScore, *Announcement::BlueTeam, BlueTeamScore));
+	}
+	else if (BlueTeamScore > RedTeamScore)
+	{
+		InfoText = Announcement::BlueTeamWins;
+		InfoText.Append(FString::Printf(TEXT("\n%s: %d\n%s: %d"), *Announcement::BlueTeam, BlueTeamScore, *Announcement::RedTeam, RedTeamScore));
+	}
+	return InfoText;
 }
 
 void ABlasterPlayerController::OnPossess(APawn* InPawn)
@@ -160,39 +259,14 @@ void ABlasterPlayerController::HandleCooldown()
 			BlasterHUD->AnnouncementWidget->SetVisibility(ESlateVisibility::Visible);
 			if (BlasterHUD->AnnouncementWidget->AnnouncementText)
 			{
-				const FString AnnouncementText = TEXT("New Match Starts In:");
+				const FString AnnouncementText = Announcement::NewMatchStartsIn;
 				BlasterHUD->AnnouncementWidget->AnnouncementText->SetText(FText::FromString(AnnouncementText));
 			}
-			if (BlasterHUD->AnnouncementWidget->InfoText)
+			ABlasterGameState* BlasterGameState = Cast<ABlasterGameState>(UGameplayStatics::GetGameState(this));
+			if (BlasterHUD->AnnouncementWidget->InfoText && BlasterGameState)
 			{
-				FString InfoText = TEXT("");
-				if (ABlasterGameState* BlasterGameState = Cast<ABlasterGameState>(UGameplayStatics::GetGameState(this)))
-				{
-					if (ABlasterPlayerState* BlasterPlayerState = GetPlayerState<ABlasterPlayerState>())
-					{
-						TArray<ABlasterPlayerState*>& TopPlayers = BlasterGameState->TopScoringPlayers;
-						if (TopPlayers.Num() == 0)
-						{
-							InfoText = TEXT("There is no winner.");
-						}
-						else if (TopPlayers.Num() == 1 && TopPlayers[0] == BlasterPlayerState)
-						{
-							InfoText = TEXT("You are the winner.");
-						}
-						else if (TopPlayers.Num() == 1)
-						{
-							InfoText = FString::Printf(TEXT("Winner: \n%s"), *TopPlayers[0]->GetPlayerName());
-						}
-						else if (TopPlayers.Num() > 1)
-						{
-							InfoText = TEXT("Players tied for the win:\n");
-							for (const auto& TopPlayer : TopPlayers)
-							{
-								InfoText.Append(FString::Printf(TEXT("%s\n"), *TopPlayer->GetPlayerName()));
-							}
-						}
-					}
-				}
+				const TArray<ABlasterPlayerState*> TopPlayers = BlasterGameState->TopScoringPlayers;
+				const FString InfoText = bShowTeamScores ? GetTeamsInfoText(BlasterGameState) : GetInfoText(TopPlayers);
 				
 				BlasterHUD->AnnouncementWidget->InfoText->SetText(FText::FromString(InfoText));
 			}
@@ -439,21 +513,85 @@ void ABlasterPlayerController::SetHUDGrenades(const int32 Grenades)
 	}
 }
 
+void ABlasterPlayerController::SetHUDRedTeamScore(const int32 RedScore)
+{
+	BlasterHUD = BlasterHUD == nullptr ? Cast<ABlasterHUD>(GetHUD()) : BlasterHUD;
+	const bool bHUDValid =
+		BlasterHUD &&
+		BlasterHUD->CharacterOverlay &&
+		BlasterHUD->CharacterOverlay->RedTeamScoreText;
+
+	if (bHUDValid)
+	{
+		BlasterHUD->CharacterOverlay->RedTeamScoreText->SetText(FText::AsNumber(RedScore));
+	}
+}
+
+void ABlasterPlayerController::SetHUDBlueTeamScore(const int32 BlueScore)
+{
+	BlasterHUD = BlasterHUD == nullptr ? Cast<ABlasterHUD>(GetHUD()) : BlasterHUD;
+	const bool bHUDValid =
+		BlasterHUD &&
+		BlasterHUD->CharacterOverlay &&
+		BlasterHUD->CharacterOverlay->BlueTeamScoreText;
+
+	if (bHUDValid)
+	{
+		BlasterHUD->CharacterOverlay->BlueTeamScoreText->SetText(FText::AsNumber(BlueScore));
+	}
+}
+
 void ABlasterPlayerController::BroadcastElim(const APlayerState* Attacker, const APlayerState* Victim)
 {
 	ClientElimAnnouncement(Attacker, Victim);
 }
 
-void ABlasterPlayerController::OnMatchStateSet(FName State)
+void ABlasterPlayerController::OnMatchStateSet(FName State, bool bTeamMatch)
 {
 	MatchState = State;
 	if (MatchState == MatchState::InProgress)
 	{
-		HandleMatchHasStarted();
+		HandleMatchHasStarted(bTeamMatch);
 	}
 	else if (MatchState == MatchState::Cooldown)
 	{
 		HandleCooldown();
+	}
+}
+
+void ABlasterPlayerController::HideTeamScores()
+{
+	BlasterHUD = BlasterHUD == nullptr ? Cast<ABlasterHUD>(GetHUD()) : BlasterHUD;
+	const bool bHUDValid =
+		BlasterHUD &&
+		BlasterHUD->CharacterOverlay &&
+		BlasterHUD->CharacterOverlay->RedTeamScoreText &&
+		BlasterHUD->CharacterOverlay->BlueTeamScoreText &&
+		BlasterHUD->CharacterOverlay->ScoreSpacerText;
+
+	if (bHUDValid)
+	{
+		BlasterHUD->CharacterOverlay->RedTeamScoreText->SetVisibility(ESlateVisibility::Hidden);
+		BlasterHUD->CharacterOverlay->BlueTeamScoreText->SetVisibility(ESlateVisibility::Hidden);
+		BlasterHUD->CharacterOverlay->ScoreSpacerText->SetVisibility(ESlateVisibility::Hidden);
+	}
+}
+
+void ABlasterPlayerController::InitTeamScores()
+{
+	BlasterHUD = BlasterHUD == nullptr ? Cast<ABlasterHUD>(GetHUD()) : BlasterHUD;
+	const bool bHUDValid =
+		BlasterHUD &&
+		BlasterHUD->CharacterOverlay &&
+		BlasterHUD->CharacterOverlay->RedTeamScoreText &&
+		BlasterHUD->CharacterOverlay->BlueTeamScoreText &&
+		BlasterHUD->CharacterOverlay->ScoreSpacerText;
+
+	if (bHUDValid)
+	{
+		BlasterHUD->CharacterOverlay->RedTeamScoreText->SetVisibility(ESlateVisibility::Visible);
+		BlasterHUD->CharacterOverlay->BlueTeamScoreText->SetVisibility(ESlateVisibility::Visible);
+		BlasterHUD->CharacterOverlay->ScoreSpacerText->SetVisibility(ESlateVisibility::Visible);
 	}
 }
 

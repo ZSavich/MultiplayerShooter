@@ -7,6 +7,7 @@
 #include "Components/CombatComponent.h"
 #include "Components/TimelineComponent.h"
 #include "GameFramework/Character.h"
+#include "GameModes/BlasterGameMode.h"
 #include "Interfaces/InteractWithCrosshairsInterface.h"
 #include "PlayerStates/BlasterPlayerState.h"
 #include "BlasterCharacter.generated.h"
@@ -71,6 +72,9 @@ private:
 	UPROPERTY()
 	ABlasterPlayerController* BlasterPlayerController;
 
+	UPROPERTY()
+	ABlasterGameMode* BlasterGameMode;
+
 	float AO_Yaw;
 	float AO_Pitch;
 	float InterpAO_Yaw;
@@ -132,6 +136,24 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Dissolve effect")
 	UMaterialInstance* DissolveMaterialInstance;
+
+	/*
+	 * Team Materials
+	 */
+	UPROPERTY(EditAnywhere, Category = "Team")
+	UMaterialInstance* RedDissolvedMatInst;
+
+	UPROPERTY(EditAnywhere, Category = "Team")
+	UMaterialInstance* BlueDissolvedMatInst;
+
+	UPROPERTY(EditAnywhere, Category = "Team")
+	UMaterialInstance* RedTeamMaterial;
+
+	UPROPERTY(EditAnywhere, Category = "Team")
+	UMaterialInstance* BlueTeamMaterial;
+
+	UPROPERTY(EditAnywhere, Category = "Team")
+	UMaterialInstance* DefaultTeamMaterial;
 
 	/* Default Weapon */
 	UPROPERTY(EditAnywhere)
@@ -227,7 +249,7 @@ public:
 	
 private:
 	UFUNCTION()
-	void UpdateDissolveMaterial(const float DissolveValue);
+	void UpdateDissolveMaterial(float DissolveValue);
 	void StartDissolve();
 	
 	UFUNCTION()
@@ -282,6 +304,9 @@ protected:
 
 	void DropOrDestroyWeapon(AWeaponBase* Weapon);
 	void DropOrDestroyWeapons();
+
+	void SetSpawnPoint();
+	void OnPlayerStateInitialized();
 	
 public:
 	ABlasterCharacter();
@@ -333,6 +358,14 @@ public:
 	ECombatState GetCombatState() const;
 
 	bool IsLocallyReloading();
+
+	void SetTeamColor(const ETeam Team);
+
+	bool IsHoldingTheFlag() const;
+
+	ETeam GetTeam();
+
+	void SetHoldingTheFlag(bool bHolding);
 	
 	FORCEINLINE float GetAO_Yaw() const { return AO_Yaw; }
 	FORCEINLINE float GetAO_Pitch() const { return AO_Pitch; }

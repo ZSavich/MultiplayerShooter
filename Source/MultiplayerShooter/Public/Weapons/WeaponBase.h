@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "CasingBase.h"
 #include "WeaponTypes.h"
+#include "BlasterTypes/Team.h"
 #include "GameFramework/Actor.h"
 #include "WeaponBase.generated.h"
 
@@ -126,6 +127,9 @@ protected:
 	UPROPERTY(EditAnywhere, Replicated, Category = "Lag Compensation")
 	bool bUseServerSideRewind = false;
 
+	UPROPERTY(EditAnywhere)
+	ETeam Team; 
+
 	UPROPERTY()
 	ABlasterCharacter* BlasterOwnerCharacter;
 
@@ -162,11 +166,11 @@ protected:
 public:
 	virtual void OnRep_Owner() override;
 	virtual void Fire(const FVector& HitTarget);
-
+	virtual void Dropped();
+	
 	void SetHUDAmmo();
 	bool IsEmpty();
 	bool IsFull();
-	void Dropped();
 	void AddAmmo(const int32 AmmoToAdd);
 	void ShowPickupWidget(bool IsVisible) const;
 	void EnableCustomDepth(const bool bEnable);
@@ -183,4 +187,6 @@ public:
 	FORCEINLINE int32 GetAmmo() const { return Ammo; }
 	FORCEINLINE float GetDamage() const { return Damage; }
 	FORCEINLINE float GetHeadShotDamage() const { return HeadShotDamage; }
+	FORCEINLINE UWidgetComponent* GetPickupWidget() const { return PickupWidget; }
+	FORCEINLINE ETeam GetTeam() const { return Team; }
 };

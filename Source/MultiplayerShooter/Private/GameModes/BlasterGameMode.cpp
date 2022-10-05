@@ -53,6 +53,12 @@ void ABlasterGameMode::Tick(float DeltaSeconds)
 	}
 }
 
+float ABlasterGameMode::CalculateDamage(const AController* VictimController,
+	const AController* AttackerController, float BaseDamage)
+{
+	return BaseDamage;
+}
+
 void ABlasterGameMode::OnPlayerLeftGame(ABlasterPlayerState* PlayerLeaving)
 {
 	if (PlayerLeaving == nullptr)
@@ -79,7 +85,7 @@ void ABlasterGameMode::OnMatchStateSet()
 	for (auto It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
 	{
 		ABlasterPlayerController* BlasterController = Cast<ABlasterPlayerController>(It->Get());
-		if (BlasterController)
+		if (BlasterController && bTeamsMatch)
 		{
 			BlasterController->OnMatchStateSet(MatchState);
 		}

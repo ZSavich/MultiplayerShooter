@@ -6,9 +6,6 @@
 #include "GameFramework/GameMode.h"
 #include "LobbyGameMode.generated.h"
 
-/**
- * 
- */
 UCLASS()
 class MULTIPLAYERSHOOTER_API ALobbyGameMode : public AGameMode
 {

@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
 #include "GameModes/BlasterGameMode.h"
+#include "GameStates/BlasterGameState.h"
 #include "HUD/CharacterOverlayWidget.h"
 #include "Weapons/WeaponTypes.h"
 #include "BlasterPlayerController.generated.h"
@@ -86,6 +87,9 @@ protected:
 	float ClientServerDelta = 0.f;
 	float TimeSyncRunningTime = 0.f;
 
+	UPROPERTY(ReplicatedUsing = OnRep_ShowTeamScores)
+	bool bShowTeamScores = false;
+
 private:
 	UFUNCTION()
 	void OnRep_MatchState();
@@ -106,6 +110,9 @@ protected:
 	UFUNCTION(Server, Reliable)
 	void ServerReportPingStatus(bool bHighPing);
 
+	UFUNCTION()
+	void OnRep_ShowTeamScores();
+
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaSeconds) override;
 	virtual void SetupInputComponent() override;
@@ -122,6 +129,9 @@ protected:
 	void ShowReturnToMainMenu();
 
 	void ClientElimAnnouncement(const APlayerState* Attacker, const APlayerState* Victim);
+
+	FString GetInfoText(const TArray<ABlasterPlayerState*>& Players);
+	FString GetTeamsInfoText(ABlasterGameState* BlasterGameState);
 	
 public:
 	virtual void OnPossess(APawn* InPawn) override;
@@ -129,7 +139,7 @@ public:
 	virtual float GetServerTime();
 
 	void HandleCooldown();
-	void HandleMatchHasStarted();
+	void HandleMatchHasStarted(bool bTeamsMatch = false);
 	
 	void SetHUDHealth(const float Health, const float MaxHealth);
 	void SetHUDShield(const float Shield, const float MaxShield);
@@ -141,8 +151,14 @@ public:
 	void SetHUDMatchCountdown(const float CountdownTime);
 	void SetHUDAnnouncementCountdown(const float CountdownTime);
 	void SetHUDGrenades(const int32 Grenades);
-
+	void SetHUDRedTeamScore(const int32 RedScore);
+	void SetHUDBlueTeamScore(const int32 BlueScore);
+	
 	void BroadcastElim(const APlayerState* Attacker, const APlayerState* Victim);
 	
-	void OnMatchStateSet(FName State);
+	void OnMatchStateSet(FName State, bool bTeamMatch = false);
+
+	void HideTeamScores();
+	void InitTeamScores();
+	
 };

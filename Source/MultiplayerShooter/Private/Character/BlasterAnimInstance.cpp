@@ -81,4 +81,5 @@ void UBlasterAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 	}
 	bUseAimOffset = BlasterCharacter->GetCombatState() == ECombatState::ECS_Unoccupied && !BlasterCharacter->GetDisableGameplay();
 	bTransformRightHand = BlasterCharacter->GetCombatState() == ECombatState::ECS_Unoccupied && !BlasterCharacter->GetDisableGameplay();
+	bHoldingTheFlag = BlasterCharacter->IsHoldingTheFlag();
 }

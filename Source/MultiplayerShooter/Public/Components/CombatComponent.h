@@ -30,6 +30,9 @@ private:
 
 	UPROPERTY()
 	ABlasterHUD* HUD;
+	
+	UPROPERTY(ReplicatedUsing = OnRep_HoldingTheFlag)
+	bool bHoldingTheFlag = false;
 
 	float CrosshairVelocityFactor;
 	float CrosshairInAirFactor;
@@ -182,6 +185,8 @@ protected:
 	bool AttachActorToRightHand(AActor* ActorToAttach);
 	bool AttachActorToLeftHand(AActor* ActorToAttach);
 	bool AttachActorToBackpack(AActor* ActorToAttach);
+	bool AttachFlagToLeftHand(AWeaponBase* FlagToAttach);
+	
 	void UpdateCarriedAmmo();
 	void PlayEquipWeaponSound(AWeaponBase* WeaponToEquip);
 	void ReloadEmptyWeapon();
@@ -224,6 +229,9 @@ protected:
 
 	UFUNCTION()
 	void OnRep_Aiming();
+
+	UFUNCTION()
+	void OnRep_HoldingTheFlag();
 
 private:
 	UFUNCTION(Server, Reliable, WithValidation)

@@ -66,6 +66,7 @@ void UCombatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	DOREPLIFETIME_CONDITION(UCombatComponent, CarriedAmmo, COND_OwnerOnly);
 	DOREPLIFETIME(UCombatComponent, CombatState);
 	DOREPLIFETIME(UCombatComponent, Grenades);
+	DOREPLIFETIME(UCombatComponent, bHoldingTheFlag);
 }
 
 void UCombatComponent::SetAiming(bool bIsAiming)
@@ -110,18 +111,27 @@ void UCombatComponent::EquipWeapon(AWeaponBase* WeaponToEquip)
 	{
 		return;
 	}
-
-	if (EquippedWeapon && SecondaryWeapon == nullptr)
+	if (WeaponToEquip->GetWeaponType() == EWeaponType::EWT_Flag)
 	{
-		EquipSecondaryWeapon(WeaponToEquip);
+		Character->Crouch();
+		bHoldingTheFlag = true;
+		WeaponToEquip->SetWeaponState(EWeaponState::EWS_Equipped);
+		AttachFlagToLeftHand(WeaponToEquip);
 	}
 	else
 	{
-		EquipPrimaryWeapon(WeaponToEquip);
-	}
+		if (EquippedWeapon && SecondaryWeapon == nullptr)
+		{
+			EquipSecondaryWeapon(WeaponToEquip);
+		}
+		else
+		{
+			EquipPrimaryWeapon(WeaponToEquip);
+		}
 	
-	Character->GetCharacterMovement()->bOrientRotationToMovement = false;
-	Character->bUseControllerRotationYaw = true;
+		Character->GetCharacterMovement()->bOrientRotationToMovement = false;
+		Character->bUseControllerRotationYaw = true;
+	}
 }
 
 void UCombatComponent::EquipPrimaryWeapon(AWeaponBase* WeaponToEquip)
@@ -284,6 +294,22 @@ bool UCombatComponent::AttachActorToBackpack(AActor* ActorToAttach)
 		return BackpackSocket->AttachActor(ActorToAttach, Character->GetMesh());
 	}
 	return false;
+}
+
+bool UCombatComponent::AttachFlagToLeftHand(AWeaponBase* FlagToAttach)
+{
+	bool bResult = false; 
+	const USkeletalMeshSocket* HandSocket = Character->GetMesh()->GetSocketByName(TEXT("FlagSocket"));
+	if (HandSocket)
+	{
+		bResult = HandSocket->AttachActor(FlagToAttach, Character->GetMesh());
+		if (bResult)
+		{
+			FlagToAttach->ShowPickupWidget(false);
+			FlagToAttach->SetOwner(Character);
+		}
+	}
+	return bResult;
 }
 
 void UCombatComponent::UpdateCarriedAmmo()
@@ -494,6 +520,14 @@ void UCombatComponent::OnRep_Aiming()
 	if (Character->IsLocallyControlled())
 	{
 		bAiming = bAimButtonPressed;
+	}
+}
+
+void UCombatComponent::OnRep_HoldingTheFlag()
+{
+	if (bHoldingTheFlag && Character && Character->IsLocallyControlled())
+	{
+		Character->Crouch();
 	}
 }
 
