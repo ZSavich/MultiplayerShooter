@@ -58,7 +58,14 @@ Build/*
 Builds/*
 
 # Assets
-Content/*
+Content/__ExternalActors__/*
+Content/Assets/*
+Content/Developers/*
+Content/Collections/*
+Content/LearningKit_Games/*
+Content/Maps/*
+Content/sA_PickupSet_1/*
+
 
 # Whitelist PakBlacklist-<BuildConfiguration>.txt files
 !Build/*/
